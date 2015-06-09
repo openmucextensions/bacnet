@@ -1,4 +1,4 @@
-# BACnet Device Driver
+# BACnet Driver Service
 OpenMUC BACnet/IP communication driver based on bacnet4J.
 
 This project contains a communication driver for Fraunhofer's OpenMUC framework (see www.openmuc.org) that allows to communicate with BACnet communication networks. BACnet is a communication protocol mainly used in the building automation domain, specified by the American Society of Heating, Refrigerating and Air-Conditioning Engineers (ASHRAE), see www.bacnet.org for details.
