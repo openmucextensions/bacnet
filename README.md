@@ -12,3 +12,5 @@ The driver is based on (uses internally) the bacnet4J library version 1.3, which
 * Scan for remote devices in a BACnet network (WhoIs)
 * Scan for data points (channels) on a specified remote device
 * Add a listener for change-of-value (COV)
+
+For further information see the project's [wiki](https://github.com/openmucextensions/bacnet/wiki).
