@@ -6,7 +6,9 @@ This project contains a communication driver for Fraunhofer's OpenMUC framework 
 The driver is based on (uses internally) the bacnet4J library version 1.3, which is hosted at http://sourceforge.net/projects/bacnet4j/. Bacause the documentation for the library is very poor, the wiki of this projects contains some examples for using the library.
 
 ### Feature overview:
+* Automated selection of IP network port
 * Read present value from basic BACnet object types like analog, binary or multitate values
 * Write values to commandable objects with definable priority
 * Scan for remote devices in a BACnet network (WhoIs)
 * Scan for data points (channels) on a specified remote device
+* Add a listener for change-of-value (COV)
