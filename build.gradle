@@ -1,0 +1,36 @@
+
+configurations.create('embed')
+
+dependencies {
+  compile group: 'org.osgi', name: 'osgi_R4_compendium', version: '1.0'
+  compile group: 'org.slf4j', name: 'slf4j-api', version: '1.6.1'
+  compile project(':openmuc-core-spi')
+  
+  compile files('./lib/seroUtils.jar')
+  compile files('./lib/bacnet4J.jar')
+  compile 'org.apache.commons:commons-lang3:3.4'
+
+  embed files('./lib/seroUtils.jar')
+  embed files('./lib/bacnet4J.jar')
+  embed 'org.apache.commons:commons-lang3:3.4'
+  
+  // this is for log message output on the console
+  testCompile 'org.slf4j:slf4j-simple:1.7.12'
+  
+}
+
+jar {
+  manifest {
+    name = "OpenMUC Driver - BACnet"
+    instruction 'Bundle-ClassPath', '.,lib/bacnet4J.jar,lib/seroUtils.jar,lib/commons-lang3-3.4.jar' 
+    instruction 'Export-Package', ''
+    instruction 'Import-Package', '!com.serotonin*,!org.apache.commons*,*'
+    instruction 'Service-Component', 'OSGI-INF/components.xml'
+  }
+}
+
+jar {
+  into('lib') {
+    from configurations.embed
+  }
+}
