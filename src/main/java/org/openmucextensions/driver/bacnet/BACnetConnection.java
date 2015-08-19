@@ -14,7 +14,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.openmuc.extensions.driver.bacnet;
+package org.openmucextensions.driver.bacnet;
 
 import java.util.ArrayList;
 import java.util.HashMap;

@@ -1,4 +1,4 @@
-package org.openmuc.extensions.driver.bacnet;
+package org.openmucextensions.driver.bacnet;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -7,6 +7,7 @@ import org.openmuc.framework.config.ChannelScanInfo;
 import org.openmuc.framework.config.DeviceScanInfo;
 import org.openmuc.framework.driver.spi.Connection;
 import org.openmuc.framework.driver.spi.DriverDeviceScanListener;
+import org.openmucextensions.driver.bacnet.BACnetDriver;
 
 public class DriverTest implements DriverDeviceScanListener {
 

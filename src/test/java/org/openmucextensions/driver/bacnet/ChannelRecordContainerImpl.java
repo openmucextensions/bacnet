@@ -1,4 +1,4 @@
-package org.openmuc.extensions.driver.bacnet;
+package org.openmucextensions.driver.bacnet;
 
 import org.openmuc.framework.data.Record;
 import org.openmuc.framework.dataaccess.Channel;

@@ -1,10 +1,11 @@
-package org.openmuc.extensions.driver.bacnet;
+package org.openmucextensions.driver.bacnet;
 
 import static org.junit.Assert.*;
 import static org.hamcrest.CoreMatchers.*;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.openmucextensions.driver.bacnet.Settings;
 
 public class TestSettings {
 

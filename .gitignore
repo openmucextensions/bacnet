@@ -2,6 +2,7 @@
 /build/
 /bin/
 target/
+.gradle/
  
 # OS Files #
 .DS_Store
