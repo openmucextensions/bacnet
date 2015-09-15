@@ -1,14 +1,33 @@
+buildscript {
+  repositories {
+      // maven central
+      maven {
+          url this.properties['internalArtifactory.mavenCentral']
+      }
+  }
+  dependencies {
+      classpath 'net.researchgate:gradle-release:2.1.1'
+  }
+}
+
 apply plugin: 'java'
 apply plugin: 'eclipse'
 apply plugin: 'osgi'
 apply plugin: 'maven'
 apply plugin: 'signing'
+apply plugin: 'net.researchgate.release'
 
-version = '0.0.2'
 group = 'org.openmucextensions'
 
 sourceCompatibility = 1.7
 targetCompatibility = 1.7
+
+// configure the release plugin
+release {
+  git {
+    requireBranch = ''
+  }
+}
 
 repositories {
 //  mavenCentral()
@@ -53,4 +72,8 @@ jar {
   into('lib') {
     from configurations.embed
   }
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.1'
 }
