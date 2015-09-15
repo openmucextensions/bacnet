@@ -1,9 +1,7 @@
 buildscript {
   repositories {
-      // maven central
-      maven {
-          url this.properties['internalArtifactory.mavenCentral']
-      }
+      mavenCentral()
+//      maven { url this.properties['internalArtifactory.mavenCentral'] }
   }
   dependencies {
       classpath 'net.researchgate:gradle-release:2.1.1'
@@ -30,9 +28,10 @@ release {
 }
 
 repositories {
-//  mavenCentral()
-  maven { url this.properties['internalArtifactory.thirdparty'] }
-  maven { url this.properties['internalArtifactory.mavenCentral'] }
+  mavenCentral()
+  mavenLocal()
+//  maven { url this.properties['internalArtifactory.thirdparty'] }
+//  maven { url this.properties['internalArtifactory.mavenCentral'] }
 }
 
 configurations.create('embed')
