@@ -49,8 +49,11 @@ import com.serotonin.bacnet4j.util.RequestUtils;
 public class BACnetDriver implements DriverService {
 
 	private final static Logger logger = LoggerFactory.getLogger(BACnetDriver.class);
+	
+	private final static String SETTING_SCAN_DISCOVERYSLEEPTIME = "discoverySleepTime";
+	private final static String SETTING_SCAN_PORT = "port";
 
-	private long whoIsSleepTime = 2*1000;
+	private final static long defaultDiscoverySleepTime = 2*1000;
 	private int nextDeviceInstanceNumber = 10000;
 	
 	// key is the IP port number of the local device
@@ -109,18 +112,32 @@ public class BACnetDriver implements DriverService {
 		deviceScanInterrupted = false;
 		
 		Settings settings = new Settings(settingsString);
+
+		long discoverySleepTime;
+		if (settings.containsKey(SETTING_SCAN_DISCOVERYSLEEPTIME)) {
+			final String discoverySleepTimeSetting = settings.get(SETTING_SCAN_DISCOVERYSLEEPTIME);
+			try {
+				discoverySleepTime = Long.parseLong(discoverySleepTimeSetting);
+			}
+			catch (NumberFormatException nfe) {
+				logger.info("invalid parameter discoverySleepTime " + SETTING_SCAN_DISCOVERYSLEEPTIME + "; using default value");
+				discoverySleepTime = defaultDiscoverySleepTime;
+			}
+		}
+		else
+			discoverySleepTime = defaultDiscoverySleepTime;
 		
-		if(!settings.containsKey("port")) {
+		if(!settings.containsKey(SETTING_SCAN_PORT)) {
 			int progress = 0;
 			for(int port=0xBAC0; port<=0xBACF; port++) {
-				settings.put("port", String.valueOf(port));
-				scanAtPort(settings, listener);
+				settings.put(SETTING_SCAN_PORT, String.valueOf(port));
+				scanAtPort(settings, listener, discoverySleepTime);
 				progress += 6; // add 6% progress per port
 				if(listener!=null) listener.scanProgressUpdate(progress);
 				if(deviceScanInterrupted) return;
 			}
 		} else {
-			scanAtPort(settings, listener);
+			scanAtPort(settings, listener, discoverySleepTime);
 		}
 	
 	}
@@ -183,9 +200,9 @@ public class BACnetDriver implements DriverService {
 		return connection;
 	}
 	
-	private void scanAtPort(Settings settings, DriverDeviceScanListener listener) throws ScanException, ScanInterruptedException, ArgumentSyntaxException {
+	private void scanAtPort(Settings settings, DriverDeviceScanListener listener, long discoverySleepTime) throws ScanException, ScanInterruptedException, ArgumentSyntaxException {
 		
-		Integer localDevicePort = (settings.containsKey("port")) ? parsePort(settings.get("port")) : IpNetwork.DEFAULT_PORT;
+		Integer localDevicePort = (settings.containsKey(SETTING_SCAN_PORT)) ? parsePort(settings.get(SETTING_SCAN_PORT)) : IpNetwork.DEFAULT_PORT;
 		
 		LocalDevice localDevice = null;
 		if(localDevices.containsKey(localDevicePort)) {
@@ -200,7 +217,7 @@ public class BACnetDriver implements DriverService {
 		
 		try {
 			localDevice.sendGlobalBroadcast(new WhoIsRequest());
-			Thread.sleep(whoIsSleepTime);
+			Thread.sleep(discoverySleepTime);
 		} catch (BACnetException e) {
 			throw new ScanException("error while sending whois broadcast: " + e.getMessage());
 		} catch (InterruptedException ignore) {
