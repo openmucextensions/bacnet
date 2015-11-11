@@ -54,12 +54,14 @@ import com.serotonin.bacnet4j.service.confirmed.ReinitializeDeviceRequest.Reinit
 import com.serotonin.bacnet4j.service.confirmed.SubscribeCOVRequest;
 import com.serotonin.bacnet4j.service.confirmed.WritePropertyRequest;
 import com.serotonin.bacnet4j.type.Encodable;
+import com.serotonin.bacnet4j.type.constructed.Address;
 import com.serotonin.bacnet4j.type.constructed.Choice;
 import com.serotonin.bacnet4j.type.constructed.DateTime;
 import com.serotonin.bacnet4j.type.constructed.PropertyValue;
 import com.serotonin.bacnet4j.type.constructed.ReadAccessResult;
 import com.serotonin.bacnet4j.type.constructed.ReadAccessResult.Result;
 import com.serotonin.bacnet4j.type.constructed.ReadAccessSpecification;
+import com.serotonin.bacnet4j.type.constructed.Sequence;
 import com.serotonin.bacnet4j.type.constructed.SequenceOf;
 import com.serotonin.bacnet4j.type.constructed.TimeStamp;
 import com.serotonin.bacnet4j.type.enumerated.BinaryPV;
@@ -302,12 +304,8 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 			
 			if(!covContainers.containsKey(objectIdentifier)) {
 				SubscribeCOVRequest request = new SubscribeCOVRequest(subscriberProcessIdentifier, objectIdentifier, issueConfirmedNotifications, lifetime);
-		        try {
-					LOCAL_DEVICE.send(REMOTE_DEVICE, request);
-					covContainers.put(objectIdentifier, channelRecordContainer);
-				} catch (BACnetException e) {
-					throw new ConnectionException(e.getMessage());
-				}
+				LOCAL_DEVICE.send(REMOTE_DEVICE, request);
+				covContainers.put(objectIdentifier, channelRecordContainer);
 			}
 			
 		} // foreach
@@ -353,12 +351,8 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 					
 					WritePropertyRequest request = new WritePropertyRequest(objectIdentifier, PropertyIdentifier.presentValue,
 							null, value, priority);
-					try {
-						LOCAL_DEVICE.send(REMOTE_DEVICE, request);
-						channelValueContainer.setFlag(Flag.VALID);
-					} catch (BACnetException e) {
-						throw new ConnectionException(e.getMessage());
-					}
+					LOCAL_DEVICE.send(REMOTE_DEVICE, request);
+					channelValueContainer.setFlag(Flag.VALID);
 				} else {
 					// tried to write a not supported object type
 					channelValueContainer.setFlag(Flag.DRIVER_ERROR_CHANNEL_NOT_ACCESSIBLE);
@@ -464,9 +458,7 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		
 		if(!covContainers.isEmpty()) {
 			for (ObjectIdentifier object : covContainers.keySet()) {
-				try {
-					LOCAL_DEVICE.send(REMOTE_DEVICE, new SubscribeCOVRequest(subscriberProcessIdentifier, object, null, null));
-				} catch (BACnetException ignore) { }
+				LOCAL_DEVICE.send(REMOTE_DEVICE, new SubscribeCOVRequest(subscriberProcessIdentifier, object, null, null));
 				covContainers.remove(object);
 			}
 		}
@@ -480,12 +472,12 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	public void iAmReceived(RemoteDevice d) { }
 
 	@Override
-	public boolean allowPropertyWrite(BACnetObject obj, PropertyValue pv) {
+	public boolean allowPropertyWrite(Address from, BACnetObject obj, PropertyValue pv) {
 		return false;
 	}
 
 	@Override
-	public void propertyWritten(BACnetObject obj, PropertyValue pv) { }
+	public void propertyWritten(Address from, BACnetObject obj, PropertyValue pv) { }
 
 	@Override
 	public void iHaveReceived(RemoteDevice d, RemoteObject o) { }
@@ -524,16 +516,15 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	public void textMessageReceived(RemoteDevice textMessageSourceDevice, Choice messageClass, MessagePriority messagePriority,
 			CharacterString message) { }
 
+	@Override
+	public void privateTransferReceived(Address from, UnsignedInteger vendorId,
+			UnsignedInteger serviceNumber, Sequence serviceParameters) { }
 
 	@Override
-	public void privateTransferReceived(UnsignedInteger vendorId,
-			UnsignedInteger serviceNumber, Encodable serviceParameters) { }
+	public void reinitializeDevice(Address from, ReinitializedStateOfDevice reinitializedStateOfDevice) { }
 
 	@Override
-	public void reinitializeDevice(ReinitializedStateOfDevice reinitializedStateOfDevice) { }
-
-	@Override
-	public void synchronizeTime(DateTime dateTime, boolean utc) { }
+	public void synchronizeTime(Address from, DateTime dateTime, boolean utc) { }
 	
 	/**
 	 * Tests the remote device connection by sending a read request for the device status property.
@@ -542,12 +533,8 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	 */
 	private boolean testConnection() {
 		ConfirmedRequestService request = new ReadPropertyRequest(REMOTE_DEVICE.getObjectIdentifier(), PropertyIdentifier.systemStatus);
-        try {
-			LOCAL_DEVICE.send(REMOTE_DEVICE, request);
-			return true;
-		} catch (BACnetException e) {
-			return false;
-		}
+		LOCAL_DEVICE.send(REMOTE_DEVICE, request);
+		return true;
 	}
 	
 }

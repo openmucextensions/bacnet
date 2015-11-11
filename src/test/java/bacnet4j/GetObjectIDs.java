@@ -5,9 +5,11 @@ import java.util.List;
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.npdu.ip.IpNetwork;
+import com.serotonin.bacnet4j.npdu.ip.IpNetworkUtils;
 import com.serotonin.bacnet4j.service.acknowledgement.ReadPropertyAck;
 import com.serotonin.bacnet4j.service.confirmed.ConfirmedRequestService;
 import com.serotonin.bacnet4j.service.confirmed.ReadPropertyRequest;
+import com.serotonin.bacnet4j.transport.DefaultTransport;
 import com.serotonin.bacnet4j.transport.Transport;
 import com.serotonin.bacnet4j.type.constructed.Address;
 import com.serotonin.bacnet4j.type.constructed.SequenceOf;
@@ -25,13 +27,13 @@ public class GetObjectIDs {
 	public static void main(String[] args) throws Throwable {
 		
 		IpNetwork network = new IpNetwork(IpNetwork.DEFAULT_BROADCAST_IP, port);
-        Transport transport = new Transport(network);
+        Transport transport = new DefaultTransport(network);
         
         int localDeviceID = 10000 + (int) ( Math.random() * 10000);
         LocalDevice localDevice = new LocalDevice(localDeviceID, transport);
         localDevice.initialize();
 
-        RemoteDevice remoteDevice = localDevice.findRemoteDevice(new Address(remoteDeviceIpAddress, port), null, remoteDeviceIdentifier);
+        RemoteDevice remoteDevice = localDevice.findRemoteDevice(IpNetworkUtils.toAddress(remoteDeviceIpAddress, port), remoteDeviceIdentifier);
         
         System.out.println("Reading object list from remote device " + remoteDevice.getInstanceNumber() + "...");
         System.out.println("");

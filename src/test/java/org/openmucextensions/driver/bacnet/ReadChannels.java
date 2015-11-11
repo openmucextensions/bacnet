@@ -10,6 +10,7 @@ import org.openmucextensions.driver.bacnet.BACnetConnection;
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.npdu.ip.IpNetwork;
+import com.serotonin.bacnet4j.transport.DefaultTransport;
 import com.serotonin.bacnet4j.transport.Transport;
 import com.serotonin.bacnet4j.type.constructed.Address;
 
@@ -22,40 +23,40 @@ public class ReadChannels {
 	public static void main(String[] args) throws Throwable {
 		
 		IpNetwork network = new IpNetwork(IpNetwork.DEFAULT_BROADCAST_IP, port);
-        Transport transport = new Transport(network);
+        Transport transport = new DefaultTransport(network);
         
         int localDeviceID = 10000 + (int) ( Math.random() * 10000);
         LocalDevice localDevice = new LocalDevice(localDeviceID, transport);
         localDevice.initialize();
 
-        RemoteDevice remoteDevice = localDevice.findRemoteDevice(new Address(remoteDeviceIpAddress, port), null, remoteDeviceIdentifier);
-        
-        BACnetConnection connection = new BACnetConnection(localDevice, remoteDevice);
-        
-        List<ChannelRecordContainer> containers = new ArrayList<ChannelRecordContainer>();
-        
-        // scan for channels
-        List<ChannelScanInfo> channelScanInfos = connection.scanForChannels(null);
-        
-        // create containers
-        for (ChannelScanInfo channelScanInfo : channelScanInfos) {
-			containers.add(new ChannelRecordContainerImpl(channelScanInfo.getChannelAddress()));
-		}
-        
-        // perform readout
-        long startTime = System.currentTimeMillis();
-        connection.read(containers, null, null);
-        long endTime = System.currentTimeMillis();
-        
-        for (ChannelRecordContainer channelRecordContainer : containers) {
-			System.out.println(channelRecordContainer.getChannelAddress());
-			System.out.println(channelRecordContainer.getRecord().toString());
-		}
-        
-        long executionTime = endTime - startTime;
-        System.out.println("\nExecution time " + executionTime + "ms");
-        
-        localDevice.terminate();
+//        RemoteDevice remoteDevice = localDevice.findRemoteDevice(new Address(remoteDeviceIpAddress, port), null, remoteDeviceIdentifier);
+//        
+//        BACnetConnection connection = new BACnetConnection(localDevice, remoteDevice);
+//        
+//        List<ChannelRecordContainer> containers = new ArrayList<ChannelRecordContainer>();
+//        
+//        // scan for channels
+//        List<ChannelScanInfo> channelScanInfos = connection.scanForChannels(null);
+//        
+//        // create containers
+//        for (ChannelScanInfo channelScanInfo : channelScanInfos) {
+//			containers.add(new ChannelRecordContainerImpl(channelScanInfo.getChannelAddress()));
+//		}
+//        
+//        // perform readout
+//        long startTime = System.currentTimeMillis();
+//        connection.read(containers, null, null);
+//        long endTime = System.currentTimeMillis();
+//        
+//        for (ChannelRecordContainer channelRecordContainer : containers) {
+//			System.out.println(channelRecordContainer.getChannelAddress());
+//			System.out.println(channelRecordContainer.getRecord().toString());
+//		}
+//        
+//        long executionTime = endTime - startTime;
+//        System.out.println("\nExecution time " + executionTime + "ms");
+//        
+//        localDevice.terminate();
 	}
 
 }

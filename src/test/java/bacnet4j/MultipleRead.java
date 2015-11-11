@@ -6,9 +6,11 @@ import java.util.List;
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.npdu.ip.IpNetwork;
+import com.serotonin.bacnet4j.npdu.ip.IpNetworkUtils;
 import com.serotonin.bacnet4j.service.acknowledgement.ReadPropertyMultipleAck;
 import com.serotonin.bacnet4j.service.confirmed.ConfirmedRequestService;
 import com.serotonin.bacnet4j.service.confirmed.ReadPropertyMultipleRequest;
+import com.serotonin.bacnet4j.transport.DefaultTransport;
 import com.serotonin.bacnet4j.transport.Transport;
 import com.serotonin.bacnet4j.type.constructed.Address;
 import com.serotonin.bacnet4j.type.constructed.ReadAccessResult;
@@ -17,6 +19,7 @@ import com.serotonin.bacnet4j.type.constructed.ReadAccessSpecification;
 import com.serotonin.bacnet4j.type.constructed.SequenceOf;
 import com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier;
 import com.serotonin.bacnet4j.type.primitive.ObjectIdentifier;
+import com.serotonin.bacnet4j.util.DiscoveryUtils;
 import com.serotonin.bacnet4j.util.RequestUtils;
 
 public class MultipleRead {
@@ -24,15 +27,15 @@ public class MultipleRead {
 	public static void main(String[] args) throws Exception {
 		
 		IpNetwork network = new IpNetwork(IpNetwork.DEFAULT_BROADCAST_IP, 0xBAC5);
-        Transport transport = new Transport(network);
+        Transport transport = new DefaultTransport(network);
         
         int localDeviceID = 10000 + (int) ( Math.random() * 10000);
         LocalDevice localDevice = new LocalDevice(localDeviceID, transport);
         localDevice.initialize();
 
-        RemoteDevice remoteDevice = localDevice.findRemoteDevice(new Address("10.78.20.115", 0xbac5), null, 2138113);
+        RemoteDevice remoteDevice = localDevice.findRemoteDevice(IpNetworkUtils.toAddress("10.78.20.115", 0xbac5), 2138113);
 
-        RequestUtils.getExtendedDeviceInformation(localDevice, remoteDevice);
+        DiscoveryUtils.getExtendedDeviceInformation(localDevice, remoteDevice);
         List<ReadAccessSpecification> specifications = new ArrayList<ReadAccessSpecification>();
     	
     	@SuppressWarnings("unchecked")

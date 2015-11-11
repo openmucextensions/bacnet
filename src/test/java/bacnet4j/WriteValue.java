@@ -3,9 +3,10 @@ package bacnet4j;
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.npdu.ip.IpNetwork;
+import com.serotonin.bacnet4j.npdu.ip.IpNetworkUtils;
 import com.serotonin.bacnet4j.service.confirmed.WritePropertyRequest;
+import com.serotonin.bacnet4j.transport.DefaultTransport;
 import com.serotonin.bacnet4j.transport.Transport;
-import com.serotonin.bacnet4j.type.constructed.Address;
 import com.serotonin.bacnet4j.type.enumerated.ObjectType;
 import com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier;
 import com.serotonin.bacnet4j.type.primitive.ObjectIdentifier;
@@ -20,13 +21,13 @@ public class WriteValue {
 	public static void main(String[] args) throws Throwable {
 		
 		IpNetwork network = new IpNetwork(IpNetwork.DEFAULT_BROADCAST_IP, port);
-        Transport transport = new Transport(network);
+        Transport transport = new DefaultTransport(network);
         
         int localDeviceID = 10000 + (int) ( Math.random() * 10000);
         LocalDevice localDevice = new LocalDevice(localDeviceID, transport);
         localDevice.initialize();
 
-        RemoteDevice remoteDevice = localDevice.findRemoteDevice(new Address(remoteDeviceIpAddress, port), null, remoteDeviceIdentifier);
+        RemoteDevice remoteDevice = localDevice.findRemoteDevice(IpNetworkUtils.toAddress(remoteDeviceIpAddress, port), remoteDeviceIdentifier);
  
         // ObjectIdentifier object = oids.get(0);
         ObjectIdentifier object = new ObjectIdentifier(ObjectType.analogOutput, 1);

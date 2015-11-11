@@ -30,6 +30,11 @@ release {
 repositories {
   mavenCentral()
   mavenLocal()
+  flatDir {
+    name 'additionalLibraries'
+    dirs rootDir.getAbsolutePath() + '/lib'
+  }
+  
 //  maven { url this.properties['internalArtifactory.thirdparty'] }
 //  maven { url this.properties['internalArtifactory.mavenCentral'] }
 }
@@ -44,12 +49,10 @@ dependencies {
   compile group: 'org.openmuc.framework', name: 'openmuc-core-spi', version: openmucversion
   compile group: 'org.openmuc.framework', name: 'openmuc-core-api', version: openmucversion
   
-  compile files('./lib/seroUtils.jar')
-  compile files('./lib/bacnet4J.jar')
+  compile group: 'com.serotonin', name: 'BACnet4J', version: '3.2.2'
+  embed group: 'com.serotonin', name: 'BACnet4J', version: '3.2.2'
   compile 'org.apache.commons:commons-lang3:3.4'
 
-  embed files('./lib/seroUtils.jar')
-  embed files('./lib/bacnet4J.jar')
   embed 'org.apache.commons:commons-lang3:3.4'
   
   testCompile group: 'junit', name: 'junit', version: '4.11'
@@ -60,7 +63,10 @@ dependencies {
 jar {
   manifest {
     name = "OpenMUC-Extensions Driver - BACnet"
-    instruction 'Bundle-ClassPath', '.,lib/bacnet4J.jar,lib/seroUtils.jar,lib/commons-lang3-3.4.jar' 
+    instruction 'Bundle-ClassPath', '.'
+    configurations.embed.each { f ->
+      instruction 'Bundle-ClassPath', "lib/$f.name"
+    }
     instruction 'Export-Package', ''
     instruction 'Import-Package', '!com.serotonin*,!org.apache.commons*,*'
     instruction 'Service-Component', 'OSGI-INF/components.xml'

@@ -8,6 +8,7 @@ import org.openmucextensions.driver.bacnet.BACnetConnection;
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.npdu.ip.IpNetwork;
+import com.serotonin.bacnet4j.transport.DefaultTransport;
 import com.serotonin.bacnet4j.transport.Transport;
 import com.serotonin.bacnet4j.type.constructed.Address;
 
@@ -20,30 +21,30 @@ public class ScanForChannels {
 	public static void main(String[] args) throws Throwable {
 		
 		IpNetwork network = new IpNetwork(IpNetwork.DEFAULT_BROADCAST_IP, port);
-        Transport transport = new Transport(network);
+        Transport transport = new DefaultTransport(network);
         
         int localDeviceID = 10000 + (int) ( Math.random() * 10000);
         LocalDevice localDevice = new LocalDevice(localDeviceID, transport);
         localDevice.initialize();
 
-        RemoteDevice remoteDevice = localDevice.findRemoteDevice(new Address(remoteDeviceIpAddress, port), null, remoteDeviceIdentifier);
-        
-        BACnetConnection connection = new BACnetConnection(localDevice, remoteDevice);
-        
-        long startTime = System.currentTimeMillis();
-        List<ChannelScanInfo> channelScanInfos = connection.scanForChannels(null);
-        long endTime = System.currentTimeMillis();
-        
-        System.out.println("Found " + channelScanInfos.size() + " channels:");
-        
-        for (ChannelScanInfo channelScanInfo : channelScanInfos) {
-			System.out.println(channelScanInfo.getChannelAddress() + " (" + channelScanInfo.getDescription() + ")");
-		}
-        
-        long executionTime = endTime - startTime;
-        System.out.println("\nExecution time " + executionTime + "ms");
-        
-        localDevice.terminate();
+//        RemoteDevice remoteDevice = localDevice.findRemoteDevice(new Address(remoteDeviceIpAddress, port), null, remoteDeviceIdentifier);
+//        
+//        BACnetConnection connection = new BACnetConnection(localDevice, remoteDevice);
+//        
+//        long startTime = System.currentTimeMillis();
+//        List<ChannelScanInfo> channelScanInfos = connection.scanForChannels(null);
+//        long endTime = System.currentTimeMillis();
+//        
+//        System.out.println("Found " + channelScanInfos.size() + " channels:");
+//        
+//        for (ChannelScanInfo channelScanInfo : channelScanInfos) {
+//			System.out.println(channelScanInfo.getChannelAddress() + " (" + channelScanInfo.getDescription() + ")");
+//		}
+//        
+//        long executionTime = endTime - startTime;
+//        System.out.println("\nExecution time " + executionTime + "ms");
+//        
+//        localDevice.terminate();
 		
 	}
 	

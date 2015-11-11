@@ -36,9 +36,11 @@ import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.exception.BACnetException;
 import com.serotonin.bacnet4j.npdu.ip.IpNetwork;
+import com.serotonin.bacnet4j.npdu.ip.IpNetworkBuilder;
 import com.serotonin.bacnet4j.service.unconfirmed.WhoIsRequest;
+import com.serotonin.bacnet4j.transport.DefaultTransport;
 import com.serotonin.bacnet4j.transport.Transport;
-import com.serotonin.bacnet4j.util.RequestUtils;
+import com.serotonin.bacnet4j.util.DiscoveryUtils;
 
 /**
  * BACnet/IP communication driver for OpenMUC based on bacnet4J.
@@ -187,7 +189,7 @@ public class BACnetDriver implements DriverService {
 		
 		// test if device is reachable (according to OpenMUC method documentation)
 		try {
-			RequestUtils.getExtendedDeviceInformation(localDevice, remoteDevice);
+			DiscoveryUtils.getExtendedDeviceInformation(localDevice, remoteDevice);
 		} catch (BACnetException e) {
 			throw new ConnectionException("Couldn't reach device " + deviceAddress, e);
 		}
@@ -218,8 +220,6 @@ public class BACnetDriver implements DriverService {
 		try {
 			localDevice.sendGlobalBroadcast(new WhoIsRequest());
 			Thread.sleep(discoverySleepTime);
-		} catch (BACnetException e) {
-			throw new ScanException("error while sending whois broadcast: " + e.getMessage());
 		} catch (InterruptedException ignore) {
 			logger.warn("device scan has been interrupted while waiting for responses");
 		}
@@ -231,7 +231,7 @@ public class BACnetDriver implements DriverService {
         	if(deviceScanInterrupted) throw new ScanInterruptedException();
         	
         	try {
-				RequestUtils.getExtendedDeviceInformation(localDevice, device);
+				DiscoveryUtils.getExtendedDeviceInformation(localDevice, device);
 			} catch (BACnetException e) {
 				logger.warn("error while reading extended device information from device " + device.getInstanceNumber());
 			}
@@ -298,8 +298,8 @@ public class BACnetDriver implements DriverService {
 		int port = (settings.containsKey("port")) ? parsePort(settings.get("port")) : IpNetwork.DEFAULT_PORT;
 		int deviceInstanceNumber = (settings.containsKey("instanceNumber")) ? parseDeviceAddress(settings.get("instanceNumber")) : nextDeviceInstanceNumber++;
 		
-		IpNetwork network = new IpNetwork(broadcastIP, port, localBindAddress);
-		Transport transport = new Transport(network);
+		IpNetwork network = new IpNetworkBuilder().broadcastIp(broadcastIP).port(port).localBindAddress(localBindAddress).build();
+		Transport transport = new DefaultTransport(network);
 		LocalDevice device = new LocalDevice(deviceInstanceNumber, transport);
 		device.initialize();
 		

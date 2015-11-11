@@ -5,6 +5,7 @@ import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.event.DeviceEventAdapter;
 import com.serotonin.bacnet4j.npdu.ip.IpNetwork;
 import com.serotonin.bacnet4j.service.unconfirmed.WhoIsRequest;
+import com.serotonin.bacnet4j.transport.DefaultTransport;
 import com.serotonin.bacnet4j.transport.Transport;
 
 public class SearchDevices extends DeviceEventAdapter {
@@ -12,7 +13,7 @@ public class SearchDevices extends DeviceEventAdapter {
 	public static void main(String[] args) throws Throwable {
 		
 		IpNetwork network = new IpNetwork(IpNetwork.DEFAULT_BROADCAST_IP, 0xBAC5);
-		Transport transport = new Transport(network);
+        Transport transport = new DefaultTransport(network);
 		
 		// each BACnet device must have a unique instance number within the BACnet internetwork
 		// according to BTL Device Implementation Guidelines,
