@@ -1,0 +1,1 @@
+This BACnet4j version taken from https://github.com/mlohbihler/BACnet4J.git (commit 13c305d22b9a106cc7c1bd727c6ac873419bdf14)
