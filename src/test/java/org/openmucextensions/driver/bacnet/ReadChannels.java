@@ -5,14 +5,13 @@ import java.util.List;
 
 import org.openmuc.framework.config.ChannelScanInfo;
 import org.openmuc.framework.driver.spi.ChannelRecordContainer;
-import org.openmucextensions.driver.bacnet.BACnetConnection;
 
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.npdu.ip.IpNetwork;
+import com.serotonin.bacnet4j.npdu.ip.IpNetworkUtils;
 import com.serotonin.bacnet4j.transport.DefaultTransport;
 import com.serotonin.bacnet4j.transport.Transport;
-import com.serotonin.bacnet4j.type.constructed.Address;
 
 public class ReadChannels {
 
@@ -29,34 +28,34 @@ public class ReadChannels {
         LocalDevice localDevice = new LocalDevice(localDeviceID, transport);
         localDevice.initialize();
 
-//        RemoteDevice remoteDevice = localDevice.findRemoteDevice(new Address(remoteDeviceIpAddress, port), null, remoteDeviceIdentifier);
-//        
-//        BACnetConnection connection = new BACnetConnection(localDevice, remoteDevice);
-//        
-//        List<ChannelRecordContainer> containers = new ArrayList<ChannelRecordContainer>();
-//        
-//        // scan for channels
-//        List<ChannelScanInfo> channelScanInfos = connection.scanForChannels(null);
-//        
-//        // create containers
-//        for (ChannelScanInfo channelScanInfo : channelScanInfos) {
-//			containers.add(new ChannelRecordContainerImpl(channelScanInfo.getChannelAddress()));
-//		}
-//        
-//        // perform readout
-//        long startTime = System.currentTimeMillis();
-//        connection.read(containers, null, null);
-//        long endTime = System.currentTimeMillis();
-//        
-//        for (ChannelRecordContainer channelRecordContainer : containers) {
-//			System.out.println(channelRecordContainer.getChannelAddress());
-//			System.out.println(channelRecordContainer.getRecord().toString());
-//		}
-//        
-//        long executionTime = endTime - startTime;
-//        System.out.println("\nExecution time " + executionTime + "ms");
-//        
-//        localDevice.terminate();
+        RemoteDevice remoteDevice = localDevice.findRemoteDevice(IpNetworkUtils.toAddress(remoteDeviceIpAddress, port), remoteDeviceIdentifier);
+        
+        BACnetConnection connection = new BACnetConnection(localDevice, remoteDevice);
+        
+        List<ChannelRecordContainer> containers = new ArrayList<ChannelRecordContainer>();
+        
+        // scan for channels
+        List<ChannelScanInfo> channelScanInfos = connection.scanForChannels(null);
+        
+        // create containers
+        for (ChannelScanInfo channelScanInfo : channelScanInfos) {
+			containers.add(new ChannelRecordContainerImpl(channelScanInfo.getChannelAddress()));
+		}
+        
+        // perform readout
+        long startTime = System.currentTimeMillis();
+        connection.read(containers, null, null);
+        long endTime = System.currentTimeMillis();
+        
+        for (ChannelRecordContainer channelRecordContainer : containers) {
+			System.out.println(channelRecordContainer.getChannelAddress());
+			System.out.println(channelRecordContainer.getRecord().toString());
+		}
+        
+        long executionTime = endTime - startTime;
+        System.out.println("\nExecution time " + executionTime + "ms");
+        
+        localDevice.terminate();
 	}
 
 }

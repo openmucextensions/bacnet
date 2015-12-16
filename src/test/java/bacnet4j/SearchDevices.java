@@ -12,7 +12,7 @@ public class SearchDevices extends DeviceEventAdapter {
 
 	public static void main(String[] args) throws Throwable {
 		
-		IpNetwork network = new IpNetwork(IpNetwork.DEFAULT_BROADCAST_IP, 0xBAC5);
+		IpNetwork network = new IpNetwork(IpNetwork.DEFAULT_BROADCAST_IP, 0xBAC0);
         Transport transport = new DefaultTransport(network);
 		
 		// each BACnet device must have a unique instance number within the BACnet internetwork
