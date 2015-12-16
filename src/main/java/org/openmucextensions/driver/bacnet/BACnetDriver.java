@@ -53,7 +53,12 @@ public class BACnetDriver implements DriverService {
 	private final static Logger logger = LoggerFactory.getLogger(BACnetDriver.class);
 	
 	private final static String SETTING_SCAN_DISCOVERYSLEEPTIME = "discoverySleepTime";
-	private final static String SETTING_SCAN_PORT = "port";
+	private final static String SETTING_SCAN_PORT = "scanPort";
+	private final static String SETTING_BROADCAST_IP = "broadcastIP";
+	private final static String SETTING_LOCALBIND_ADDRESS = "localBindAddress";
+	private final static String SETTING_LOCAL_PORT = "localDevicePort";
+	private final static String SETTING_LOCAL_DVC_INSTANCENUMBER = "localInstanceNumber";
+	private final static String SETTING_REMOTE_PORT = "remoteDevicePort";
 
 	private final static long defaultDiscoverySleepTime = 2*1000;
 	private int nextDeviceInstanceNumber = 10000;
@@ -64,7 +69,7 @@ public class BACnetDriver implements DriverService {
 	// key is the remote device instance number
 	private final Map<Integer, RemoteDevice> remoteDevices = new ConcurrentHashMap<Integer, RemoteDevice>();
 	
-	private boolean deviceScanInterrupted = false;
+	private volatile boolean deviceScanInterrupted = false;
 	
 	private final static DriverInfo driverInfo = new DriverInfo("bacnet", // id
 			// description
@@ -131,17 +136,16 @@ public class BACnetDriver implements DriverService {
 		
 		if(!settings.containsKey(SETTING_SCAN_PORT)) {
 			int progress = 0;
-			for(int port=0xBAC0; port<=0xBACF; port++) {
-				settings.put(SETTING_SCAN_PORT, String.valueOf(port));
-				scanAtPort(settings, listener, discoverySleepTime);
+			for(int scanPort=0xBAC0; scanPort<=0xBACF; scanPort++) {
+				scanAtPort(settings.get(SETTING_BROADCAST_IP), scanPort, listener, discoverySleepTime);
 				progress += 6; // add 6% progress per port
 				if(listener!=null) listener.scanProgressUpdate(progress);
 				if(deviceScanInterrupted) return;
 			}
 		} else {
-			scanAtPort(settings, listener, discoverySleepTime);
+			Integer scanPort = (settings.containsKey(SETTING_SCAN_PORT)) ? parsePort(settings.get(SETTING_SCAN_PORT)) : IpNetwork.DEFAULT_PORT;				
+			scanAtPort(settings.get(SETTING_BROADCAST_IP), scanPort, listener, discoverySleepTime);
 		}
-	
 	}
 
 	@Override
@@ -156,25 +160,26 @@ public class BACnetDriver implements DriverService {
 		Integer remoteInstance = parseDeviceAddress(deviceAddress);
 		
 		Settings settings = new Settings(settingsString);
-		Integer localDevicePort = (settings.containsKey("port")) ? parsePort(settings.get("port")) : IpNetwork.DEFAULT_PORT;
 		
 		LocalDevice localDevice = null;
-		if(localDevices.containsKey(localDevicePort)) {
-			localDevice = localDevices.get(localDevicePort);
-		} else {
-			try {
-				localDevice = createLocalDevice(settings);
-				logger.debug("created local BACnet device with instance number {} and port 0x{}",
-						localDevice.getConfiguration().getInstanceId(), Integer.toHexString(localDevicePort.intValue()));
-				localDevices.put(localDevicePort, localDevice);
-			} catch (Exception e) {
-				throw new ConnectionException("error while creating local device: " + e.getMessage());
-			}
+		try {
+			String broadcastIP = settings.get(SETTING_BROADCAST_IP);
+			String localBindAddress = settings.get(SETTING_LOCALBIND_ADDRESS);
+			Integer localDevicePort = (settings.containsKey(SETTING_LOCAL_PORT)) ? parsePort(settings.get(SETTING_LOCAL_PORT)) : null;
+			Integer localDeviceInstanceNumber = (settings.containsKey(SETTING_LOCAL_DVC_INSTANCENUMBER)) ? parseDeviceAddress(settings.get(SETTING_LOCAL_DVC_INSTANCENUMBER)) : null;
+			
+			localDevice = createLocalDevice(broadcastIP, localBindAddress, localDevicePort, localDeviceInstanceNumber);
+		} catch (Exception e) {
+			throw new ConnectionException("error while creating local device: " + e.getMessage());
 		}
 		
 		if(!remoteDevices.containsKey(remoteInstance)) {
 			try {
-				scanForDevices("", null);
+				Settings scanSettings = new Settings();
+				scanSettings.put(SETTING_BROADCAST_IP, settings.get(SETTING_BROADCAST_IP));
+				scanSettings.put(SETTING_LOCALBIND_ADDRESS, settings.get(SETTING_LOCALBIND_ADDRESS));
+				scanSettings.put(SETTING_SCAN_PORT, settings.get(SETTING_REMOTE_PORT));
+				scanForDevices(scanSettings.toSettingsString(), null);
 			} catch (UnsupportedOperationException ignore) {
 				throw new AssertionError();
 			} catch (ScanException e) {
@@ -202,19 +207,16 @@ public class BACnetDriver implements DriverService {
 		return connection;
 	}
 	
-	private void scanAtPort(Settings settings, DriverDeviceScanListener listener, long discoverySleepTime) throws ScanException, ScanInterruptedException, ArgumentSyntaxException {
-		
-		Integer localDevicePort = (settings.containsKey(SETTING_SCAN_PORT)) ? parsePort(settings.get(SETTING_SCAN_PORT)) : IpNetwork.DEFAULT_PORT;
-		
+	private void scanAtPort(String broadcastIP, Integer scanPort, DriverDeviceScanListener listener, long discoverySleepTime) throws ScanException, ScanInterruptedException, ArgumentSyntaxException {
+		if (scanPort == null)
+			throw new IllegalArgumentException("scanPort must not be null");
 		LocalDevice localDevice = null;
-		if(localDevices.containsKey(localDevicePort)) {
-			localDevice = localDevices.get(localDevicePort);
-		} else {
-			try {
-				localDevice = createLocalDevice(settings);
-			} catch (Exception e) {
-				throw new ScanException("error while creating local device: " + e.getMessage());
-			}
+		// check if createLocalDevice will create a new one
+		final boolean cachedLocalDevice = localDevices.containsKey(scanPort);
+		try {
+			localDevice = createLocalDevice(broadcastIP, null, scanPort, null);
+		} catch (Exception e) {
+			throw new ScanException("error while creating local device: " + e.getMessage());
 		}
 		
 		try {
@@ -224,7 +226,7 @@ public class BACnetDriver implements DriverService {
 			logger.warn("device scan has been interrupted while waiting for responses");
 		}
         
-		logger.debug("found {} remote device(s) from scan at port 0x{}", localDevice.getRemoteDevices().size(), Integer.toHexString(localDevicePort.intValue())); 
+		logger.debug("found {} remote device(s) from scan at port 0x{}", localDevice.getRemoteDevices().size(), Integer.toHexString(scanPort.intValue())); 
 		 
         for (RemoteDevice device : localDevice.getRemoteDevices()) {
         	
@@ -238,17 +240,16 @@ public class BACnetDriver implements DriverService {
 			remoteDevices.put(device.getInstanceNumber(), device);
 			
 			if(listener != null) {
-				listener.deviceFound(new DeviceScanInfo(Integer.toString(device.getInstanceNumber()), settings.toSettingsString(), device.getName()));
+				listener.deviceFound(new DeviceScanInfo(Integer.toString(device.getInstanceNumber()), "", device.getName()));
 			}
 		}
         
-        if(localDevice.getRemoteDevices().size()==0) {
-        	if(!localDevices.containsKey(localDevicePort)) {
-        		// logger.debug("local device {} will be terminated because no remote devices have been found", localDevice.getConfiguration().getInstanceId());
+        if((localDevice.getRemoteDevices().size()==0)) {
+        	if(!cachedLocalDevice) {
+        		logger.debug("local device {} will be terminated because no remote devices have been found", localDevice.getConfiguration().getInstanceId());
         		localDevice.terminate();
+        		localDevices.remove(scanPort);
         	}
-        } else {
-        	localDevices.put(localDevicePort, localDevice);
         }
 	}
 	
@@ -290,21 +291,24 @@ public class BACnetDriver implements DriverService {
 		return new Integer(result);
 	}
 	
-	private LocalDevice createLocalDevice(Settings settings) throws ArgumentSyntaxException, Exception {
-				
-		String broadcastIP = (settings.containsKey("broadcastIP")) ? settings.get("broadcastIP") : IpNetwork.DEFAULT_BROADCAST_IP;
-		String localBindAddress = (settings.containsKey("localBindAddress")) ? settings.get("localBindAddress") : IpNetwork.DEFAULT_BIND_IP;
+	private LocalDevice createLocalDevice(String broadcastIP, String localBindAddress, Integer localPort, Integer deviceInstanceNumber) throws ArgumentSyntaxException, Exception {
+		localPort = (localPort != null) ? localPort : IpNetwork.DEFAULT_PORT;
+		if(localDevices.containsKey(localPort)) {
+			return localDevices.get(localPort);
+		}
 		
-		int port = (settings.containsKey("port")) ? parsePort(settings.get("port")) : IpNetwork.DEFAULT_PORT;
-		int deviceInstanceNumber = (settings.containsKey("instanceNumber")) ? parseDeviceAddress(settings.get("instanceNumber")) : nextDeviceInstanceNumber++;
+		broadcastIP = (broadcastIP != null) ? broadcastIP : IpNetwork.DEFAULT_BROADCAST_IP;
+		localBindAddress = (localBindAddress != null) ? localBindAddress : IpNetwork.DEFAULT_BIND_IP;
+		deviceInstanceNumber = (deviceInstanceNumber != null) ? deviceInstanceNumber : nextDeviceInstanceNumber++;
 		
-		IpNetwork network = new IpNetworkBuilder().broadcastIp(broadcastIP).port(port).localBindAddress(localBindAddress).build();
-		Transport transport = new DefaultTransport(network);
-		LocalDevice device = new LocalDevice(deviceInstanceNumber, transport);
+		final IpNetwork network = new IpNetworkBuilder().broadcastIp(broadcastIP).port(localPort).localBindAddress(localBindAddress).build();
+		final Transport transport = new DefaultTransport(network);
+		final LocalDevice device = new LocalDevice(deviceInstanceNumber, transport);
 		device.initialize();
 		
-		// logger.debug("created local BACnet device with instance number {} and port 0x{}", deviceInstanceNumber, Integer.toHexString(port));
+		logger.debug("created local BACnet device with instance number {} and port 0x{}", deviceInstanceNumber, Integer.toHexString(localPort));
 		
+		localDevices.put(localPort, device);
 		return device;
 	}
 
