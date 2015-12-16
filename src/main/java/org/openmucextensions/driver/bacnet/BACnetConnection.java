@@ -38,6 +38,8 @@ import org.openmuc.framework.driver.spi.ChannelValueContainer;
 import org.openmuc.framework.driver.spi.Connection;
 import org.openmuc.framework.driver.spi.ConnectionException;
 import org.openmuc.framework.driver.spi.RecordsReceivedListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
@@ -91,6 +93,7 @@ import com.serotonin.bacnet4j.util.RequestUtils;
  *
  */
 public class BACnetConnection implements Connection, DeviceEventListener {
+	private final static Logger logger = LoggerFactory.getLogger(BACnetConnection.class);
 	
 	private final LocalDevice LOCAL_DEVICE;
 	private final RemoteDevice REMOTE_DEVICE;
@@ -357,6 +360,7 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 					channelValueContainer.setFlag(Flag.VALID);
 				} else {
 					// tried to write a not supported object type
+					logger.debug("cannot write value of type " + objectIdentifier.getObjectType());
 					channelValueContainer.setFlag(Flag.DRIVER_ERROR_CHANNEL_NOT_ACCESSIBLE);
 				}	
 			}
@@ -445,7 +449,7 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		
 		Encodable result = null;
 		
-		if(objectType.equals(ObjectType.analogValue)||objectType.equals(ObjectType.analogOutput)) {
+		if(objectType.equals(ObjectType.analogValue)||objectType.equals(ObjectType.analogOutput)||objectType.equals(ObjectType.analogInput)) {
 			result = new Real(value.asFloat());
 		} else if(objectType.equals(ObjectType.binaryValue)||objectType.equals(ObjectType.binaryOutput)) {
 			result = new BinaryPV(value.asInt());
