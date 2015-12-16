@@ -40,6 +40,7 @@ repositories {
 }
 
 configurations.create('embed')
+configurations.compile.extendsFrom configurations.embed
 
 dependencies {
   def openmucversion = '0.14.0'
@@ -49,11 +50,8 @@ dependencies {
   compile group: 'org.openmuc.framework', name: 'openmuc-core-spi', version: openmucversion
   compile group: 'org.openmuc.framework', name: 'openmuc-core-api', version: openmucversion
   
-  compile group: 'com.serotonin', name: 'BACnet4J', version: '3.2.2'
-  embed group: 'com.serotonin', name: 'BACnet4J', version: '3.2.2'
+  embed group: 'com.serotonin', name: 'BACnet4J', version: '3.2.2-innat1-SNAPSHOT'
   compile 'org.apache.commons:commons-lang3:3.4'
-
-  embed 'org.apache.commons:commons-lang3:3.4'
   
   testCompile group: 'junit', name: 'junit', version: '4.11'
   // this is for log message output on the console

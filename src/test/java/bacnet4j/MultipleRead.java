@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
+import com.serotonin.bacnet4j.ServiceFuture;
 import com.serotonin.bacnet4j.npdu.ip.IpNetwork;
 import com.serotonin.bacnet4j.npdu.ip.IpNetworkUtils;
 import com.serotonin.bacnet4j.service.acknowledgement.ReadPropertyMultipleAck;
@@ -12,7 +13,6 @@ import com.serotonin.bacnet4j.service.confirmed.ConfirmedRequestService;
 import com.serotonin.bacnet4j.service.confirmed.ReadPropertyMultipleRequest;
 import com.serotonin.bacnet4j.transport.DefaultTransport;
 import com.serotonin.bacnet4j.transport.Transport;
-import com.serotonin.bacnet4j.type.constructed.Address;
 import com.serotonin.bacnet4j.type.constructed.ReadAccessResult;
 import com.serotonin.bacnet4j.type.constructed.ReadAccessResult.Result;
 import com.serotonin.bacnet4j.type.constructed.ReadAccessSpecification;
@@ -59,7 +59,8 @@ public class MultipleRead {
         SequenceOf<ReadAccessSpecification> sequence = new SequenceOf<ReadAccessSpecification>(specifications);
         ConfirmedRequestService serviceRequest = new ReadPropertyMultipleRequest(sequence);
         
-        ReadPropertyMultipleAck ack = (ReadPropertyMultipleAck) localDevice.send(remoteDevice, serviceRequest);
+        ServiceFuture future = localDevice.send(remoteDevice, serviceRequest);
+        ReadPropertyMultipleAck ack = future.get();
         
         SequenceOf<ReadAccessResult> results = ack.getListOfReadAccessResults();
         

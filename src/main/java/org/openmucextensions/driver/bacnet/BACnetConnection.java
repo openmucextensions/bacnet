@@ -42,6 +42,7 @@ import org.openmuc.framework.driver.spi.RecordsReceivedListener;
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.RemoteObject;
+import com.serotonin.bacnet4j.ServiceFuture;
 import com.serotonin.bacnet4j.event.DeviceEventListener;
 import com.serotonin.bacnet4j.exception.BACnetException;
 import com.serotonin.bacnet4j.exception.PropertyValueException;
@@ -167,7 +168,8 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 				SequenceOf<ReadAccessSpecification> sequence = new SequenceOf<ReadAccessSpecification>(specifications);
 		        ConfirmedRequestService serviceRequest = new ReadPropertyMultipleRequest(sequence);
 		        
-		        ReadPropertyMultipleAck ack = (ReadPropertyMultipleAck) LOCAL_DEVICE.send(REMOTE_DEVICE, serviceRequest);
+		        ServiceFuture future = LOCAL_DEVICE.send(REMOTE_DEVICE, serviceRequest);
+		        ReadPropertyMultipleAck ack = future.get();
 		        
 		        SequenceOf<ReadAccessResult> results = ack.getListOfReadAccessResults();
 		        
