@@ -240,7 +240,11 @@ public class BACnetDriver implements DriverService {
 			remoteDevices.put(device.getInstanceNumber(), device);
 			
 			if(listener != null) {
-				listener.deviceFound(new DeviceScanInfo(Integer.toString(device.getInstanceNumber()), "", device.getName()));
+				final Settings scanSettings = new Settings();
+				if (broadcastIP != null)
+					scanSettings.put(SETTING_BROADCAST_IP, broadcastIP);
+				scanSettings.put(SETTING_REMOTE_PORT, scanPort.toString());
+				listener.deviceFound(new DeviceScanInfo(Integer.toString(device.getInstanceNumber()), scanSettings.toSettingsString(), device.getName()));
 			}
 		}
         
