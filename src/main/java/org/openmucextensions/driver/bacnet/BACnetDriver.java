@@ -46,18 +46,24 @@ import com.serotonin.bacnet4j.util.DiscoveryUtils;
  * BACnet/IP communication driver for OpenMUC based on bacnet4J.
  * 
  * @author Mike Pichler
- *
  */
 public class BACnetDriver implements DriverService {
 
 	private final static Logger logger = LoggerFactory.getLogger(BACnetDriver.class);
 	
+	/** Setting-name for the sleep time of the discovery process (in ms) */
 	private final static String SETTING_SCAN_DISCOVERYSLEEPTIME = "discoverySleepTime";
+	/** Setting-name for the single port used for scanning */
 	private final static String SETTING_SCAN_PORT = "scanPort";
+	/** Setting-name for the broadcast ip address */
 	private final static String SETTING_BROADCAST_IP = "broadcastIP";
+	/** Setting-name for the local ip address used for binding of the driver */
 	private final static String SETTING_LOCALBIND_ADDRESS = "localBindAddress";
+	/** Setting-name for the local UDP port which has to be used (for local BACnet server) */
 	private final static String SETTING_LOCAL_PORT = "localDevicePort";
+	/** Setting-name for the instance number of the local device (for local BACnet server) */
 	private final static String SETTING_LOCAL_DVC_INSTANCENUMBER = "localInstanceNumber";
+	/** Setting-name for the UDP port of the remote device */
 	private final static String SETTING_REMOTE_PORT = "remoteDevicePort";
 
 	private final static long defaultDiscoverySleepTime = 2*1000;
