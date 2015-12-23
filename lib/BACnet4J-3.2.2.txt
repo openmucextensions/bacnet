@@ -1,1 +1,0 @@
-This BACnet4J version taken from https://github.com/mlohbihler/BACnet4J.git (commit af736e9fa7d37736e69c4d29f9442d20c60f548b 2015-12-10 18:47:09) which had to be fixed (see http://infiniteautomation.com/forum/topic/2056/no-datagram-receive-on-unix-based-systems).

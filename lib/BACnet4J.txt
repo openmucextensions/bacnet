@@ -1,0 +1,1 @@
+This BACnet4J version is taken from https://github.com/infiniteautomation/BACnet4J (intermediate commit 18b2b5531da1f436da50f73f44d9b3fb25522ed0 - 2015-12-17 01:10:43).
