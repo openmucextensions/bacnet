@@ -20,8 +20,8 @@ import java.util.HashMap;
 
 public class Settings extends HashMap<String, String> {
 
-	private static final long serialVersionUID = 1L;
-	
+	private static final long serialVersionUID = -1827619677454357491L;
+
 	public Settings() {
 		super();
 	}
