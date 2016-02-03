@@ -25,12 +25,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.openmuc.framework.config.ArgumentSyntaxException;
 import org.openmuc.framework.config.ChannelScanInfo;
 import org.openmuc.framework.config.ScanException;
-import org.openmuc.framework.data.BooleanValue;
 import org.openmuc.framework.data.Flag;
-import org.openmuc.framework.data.FloatValue;
-import org.openmuc.framework.data.IntValue;
 import org.openmuc.framework.data.Record;
-import org.openmuc.framework.data.StringValue;
 import org.openmuc.framework.data.Value;
 import org.openmuc.framework.data.ValueType;
 import org.openmuc.framework.driver.spi.ChannelRecordContainer;
@@ -67,7 +63,6 @@ import com.serotonin.bacnet4j.type.constructed.ReadAccessSpecification;
 import com.serotonin.bacnet4j.type.constructed.Sequence;
 import com.serotonin.bacnet4j.type.constructed.SequenceOf;
 import com.serotonin.bacnet4j.type.constructed.TimeStamp;
-import com.serotonin.bacnet4j.type.enumerated.BinaryPV;
 import com.serotonin.bacnet4j.type.enumerated.EventState;
 import com.serotonin.bacnet4j.type.enumerated.EventType;
 import com.serotonin.bacnet4j.type.enumerated.MessagePriority;
@@ -76,9 +71,7 @@ import com.serotonin.bacnet4j.type.enumerated.ObjectType;
 import com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier;
 import com.serotonin.bacnet4j.type.notificationParameters.NotificationParameters;
 import com.serotonin.bacnet4j.type.primitive.CharacterString;
-import com.serotonin.bacnet4j.type.primitive.Null;
 import com.serotonin.bacnet4j.type.primitive.ObjectIdentifier;
-import com.serotonin.bacnet4j.type.primitive.Real;
 import com.serotonin.bacnet4j.type.primitive.UnsignedInteger;
 import com.serotonin.bacnet4j.util.PropertyReferences;
 import com.serotonin.bacnet4j.util.PropertyValues;
@@ -233,7 +226,7 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 				
 				if(identifier != null) {
 					try {
-						Value value = convertValue(values.get(identifier, PropertyIdentifier.presentValue), identifier.getObjectType());
+						Value value = ConversionUtil.convertValue(values.get(identifier, PropertyIdentifier.presentValue), identifier.getObjectType());
 						container.setRecord(new Record(value, timestamp, Flag.VALID));
 					} catch (PropertyValueException e) {
 						container.setRecord(new Record(Flag.DRIVER_ERROR_READ_FAILURE));
@@ -348,7 +341,7 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 			
 			if(objectIdentifier != null) {
 				
-				Encodable value = convertValue(channelValueContainer.getValue(), objectIdentifier.getObjectType());
+				Encodable value = ConversionUtil.convertValue(channelValueContainer.getValue(), objectIdentifier.getObjectType());
 				
 				if(value != null) {
 					
@@ -361,13 +354,12 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 				} else {
 					// tried to write a not supported object type
 					logger.debug("cannot write value of type " + objectIdentifier.getObjectType());
-					channelValueContainer.setFlag(Flag.DRIVER_ERROR_CHANNEL_NOT_ACCESSIBLE);
+					channelValueContainer.setFlag(Flag.DRIVER_ERROR_CHANNEL_VALUE_TYPE_CONVERSION_EXCEPTION);
 				}	
 			}
 		}
 		
 		return null; // according to method documentation
-		
 	}
 
 	@Override
@@ -418,48 +410,6 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		this.writePriority = writePriority;
 	}
 
-
-	// converts a BACnet value to an OpenMUC value
-	private Value convertValue(Encodable value, ObjectType objectType) {
-		
-		Value result = null;
-		
-		if(objectType.equals(ObjectType.analogInput)||objectType.equals(ObjectType.analogOutput)||objectType.equals(ObjectType.analogValue)) {
-			// present value of BACnet analog object is of type REAL, which is float in OpenMUC
-			Real realValue = (Real) value;
-			result = new FloatValue(realValue.floatValue());
-		} else if(objectType.equals(ObjectType.binaryInput)||objectType.equals(ObjectType.binaryOutput)||objectType.equals(ObjectType.binaryValue)) {
-			BinaryPV booleanValue = (BinaryPV) value;
-			result = (booleanValue.intValue()==0) ? new BooleanValue(false) : new BooleanValue(true);
-		} else if(objectType.equals(ObjectType.multiStateInput)||objectType.equals(ObjectType.multiStateInput)||objectType.equals(ObjectType.multiStateInput)) {
-			UnsignedInteger integerValue = (UnsignedInteger) value;
-			result = new IntValue(integerValue.intValue());
-		} else {
-			// default behavior in case of not handled object type
-			result = new StringValue(value.toString());
-		}
-		
-		return result;
-	}
-	
-	private Encodable convertValue(Value value, ObjectType objectType) {
-		
-		// value null means to release the command in the priority list
-		if(value == null) return new Null();
-		
-		Encodable result = null;
-		
-		if(objectType.equals(ObjectType.analogValue)||objectType.equals(ObjectType.analogOutput)||objectType.equals(ObjectType.analogInput)) {
-			result = new Real(value.asFloat());
-		} else if(objectType.equals(ObjectType.binaryValue)||objectType.equals(ObjectType.binaryOutput)) {
-			result = new BinaryPV(value.asInt());
-		} else if(objectType.equals(ObjectType.multiStateValue)||objectType.equals(ObjectType.multiStateOutput)) {
-			result = new UnsignedInteger(value.asInt());
-		}
-		
-		return result;
-	}
-	
 	private void removeSubscriptions() {
 		
 		if(!covContainers.isEmpty()) {
@@ -498,7 +448,7 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 			
 			if(container != null) {
 				
-				Record record = new Record(convertValue(listOfValues.get(1).getValue(), monitoredObjectIdentifier.getObjectType()), 
+				Record record = new Record(ConversionUtil.convertValue(listOfValues.get(1).getValue(), monitoredObjectIdentifier.getObjectType()), 
 						new Long(System.currentTimeMillis()), Flag.VALID);
 
 				container.setRecord(record);

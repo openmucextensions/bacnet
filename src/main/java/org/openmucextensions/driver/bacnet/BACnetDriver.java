@@ -20,7 +20,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.openmuc.framework.config.ArgumentSyntaxException;
+import org.openmuc.framework.config.ConfigService;
+import org.openmuc.framework.config.DeviceConfig;
 import org.openmuc.framework.config.DeviceScanInfo;
+import org.openmuc.framework.config.DriverConfig;
 import org.openmuc.framework.config.DriverInfo;
 import org.openmuc.framework.config.ScanException;
 import org.openmuc.framework.config.ScanInterruptedException;
@@ -32,6 +35,9 @@ import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.exception.BACnetException;
@@ -65,9 +71,12 @@ public class BACnetDriver implements DriverService {
 	private final static String SETTING_LOCAL_DVC_INSTANCENUMBER = "localInstanceNumber";
 	/** Setting-name for the UDP port of the remote device */
 	private final static String SETTING_REMOTE_PORT = "remoteDevicePort";
+	/** Setting-name for the flag whether this device is a BACnet server */
+	private final static String SETTING_ISSERVER = "isServer";
 
 	private final static long defaultDiscoverySleepTime = 2*1000;
 	private int nextDeviceInstanceNumber = 10000;
+    private ConfigService configService;
 	
 	// key is the IP port number of the local device
 	private final Map<Integer, LocalDevice> localDevices = new ConcurrentHashMap<Integer, LocalDevice>();
@@ -111,6 +120,15 @@ public class BACnetDriver implements DriverService {
 		}
 		
 		logger.info("BACnet communication driver deactivated, all local devices terminated");
+	}
+	
+	protected void setConfigService(ConfigService cs) {
+	    this.configService = cs;
+	}
+	
+	protected void unsetConfigService(ConfigService cs) {
+	    if (configService == cs)
+	       configService = null;
 	}
 		
 	@Override
@@ -160,7 +178,7 @@ public class BACnetDriver implements DriverService {
 	}
 
 	@Override
-	public Connection connect(String deviceAddress, String settingsString)
+	public Connection connect(final String deviceAddress, final String settingsString)
 			throws ArgumentSyntaxException, ConnectionException {
 		
 		Integer remoteInstance = parseDeviceAddress(deviceAddress);
@@ -168,49 +186,69 @@ public class BACnetDriver implements DriverService {
 		Settings settings = new Settings(settingsString);
 		
 		LocalDevice localDevice = null;
+		boolean isServer;
 		try {
 			String broadcastIP = settings.get(SETTING_BROADCAST_IP);
 			String localBindAddress = settings.get(SETTING_LOCALBIND_ADDRESS);
 			Integer localDevicePort = (settings.containsKey(SETTING_LOCAL_PORT)) ? parsePort(settings.get(SETTING_LOCAL_PORT)) : null;
 			Integer localDeviceInstanceNumber = (settings.containsKey(SETTING_LOCAL_DVC_INSTANCENUMBER)) ? parseDeviceAddress(settings.get(SETTING_LOCAL_DVC_INSTANCENUMBER)) : null;
+			isServer = (settings.containsKey(SETTING_ISSERVER)) ? Boolean.parseBoolean(settings.get(SETTING_ISSERVER)) : Boolean.FALSE;
 			
 			localDevice = createLocalDevice(broadcastIP, localBindAddress, localDevicePort, localDeviceInstanceNumber);
 		} catch (Exception e) {
 			throw new ConnectionException("error while creating local device: " + e.getMessage());
 		}
 		
-		if(!remoteDevices.containsKey(remoteInstance)) {
-			try {
-				Settings scanSettings = new Settings();
-				scanSettings.put(SETTING_BROADCAST_IP, settings.get(SETTING_BROADCAST_IP));
-				scanSettings.put(SETTING_LOCALBIND_ADDRESS, settings.get(SETTING_LOCALBIND_ADDRESS));
-				scanSettings.put(SETTING_SCAN_PORT, settings.get(SETTING_REMOTE_PORT));
-				scanForDevices(scanSettings.toSettingsString(), null);
-			} catch (UnsupportedOperationException ignore) {
-				throw new AssertionError();
-			} catch (ScanException e) {
-				throw new ConnectionException(e.getMessage());
-			} catch (ScanInterruptedException ignore) {
-				// scan not started by framework, so don't propagate exception
-			}
+		if (isServer) {
+		    final DriverConfig driverConfig = configService.getConfig().getDriver(driverInfo.getId());
+		    
+		    // try to find the device-configuration by address and settings-string
+		    final Optional<DeviceConfig> deviceConfig = Iterables.tryFind(driverConfig.getDevices(), new Predicate<DeviceConfig>() {
+                @Override
+                public boolean apply(DeviceConfig dc) {
+                    return (deviceAddress.equals(dc.getDeviceAddress()) && settingsString.equals(dc.getSettings()));
+                }});
+            if (!deviceConfig.isPresent()) {
+                throw new InternalError(String.format("cannot find deviceConfig for address {}", deviceAddress));
+            }
+		    
+		    final BACnetServerConnection connection = new BACnetServerConnection(localDevice, deviceConfig.get());
+		    return connection;
 		}
+		else {
+    		if(!remoteDevices.containsKey(remoteInstance)) {
+    			try {
+    				Settings scanSettings = new Settings();
+    				scanSettings.put(SETTING_BROADCAST_IP, settings.get(SETTING_BROADCAST_IP));
+    				scanSettings.put(SETTING_LOCALBIND_ADDRESS, settings.get(SETTING_LOCALBIND_ADDRESS));
+    				scanSettings.put(SETTING_SCAN_PORT, settings.get(SETTING_REMOTE_PORT));
+    				scanForDevices(scanSettings.toSettingsString(), null);
+    			} catch (UnsupportedOperationException ignore) {
+    				throw new AssertionError();
+    			} catch (ScanException e) {
+    				throw new ConnectionException(e.getMessage());
+    			} catch (ScanInterruptedException ignore) {
+    				// scan not started by framework, so don't propagate exception
+    			}
+    		}
+    		
+    		RemoteDevice remoteDevice = remoteDevices.get(remoteInstance);
+    		if(remoteDevice == null) throw new ConnectionException("could not find device " + deviceAddress);
+    		
+    		// test if device is reachable (according to OpenMUC method documentation)
+    		try {
+    			DiscoveryUtils.getExtendedDeviceInformation(localDevice, remoteDevice);
+    		} catch (BACnetException e) {
+    			throw new ConnectionException("Couldn't reach device " + deviceAddress, e);
+    		}
 		
-		RemoteDevice remoteDevice = remoteDevices.get(remoteInstance);
-		if(remoteDevice == null) throw new ConnectionException("could not find device " + deviceAddress);
-		
-		// test if device is reachable (according to OpenMUC method documentation)
-		try {
-			DiscoveryUtils.getExtendedDeviceInformation(localDevice, remoteDevice);
-		} catch (BACnetException e) {
-			throw new ConnectionException("Couldn't reach device " + deviceAddress, e);
+			BACnetConnection connection = new BACnetConnection(localDevice, remoteDevice);
+			
+			Integer writePriority = (settings.containsKey("writePriority")) ? parseWritePriority(settings.get("writePriority")) : null;
+			connection.setWritePriority(writePriority);
+			
+			return connection;
 		}
-		
-		BACnetConnection connection = new BACnetConnection(localDevice, remoteDevice);
-		
-		Integer writePriority = (settings.containsKey("writePriority")) ? parseWritePriority(settings.get("writePriority")) : null;
-		connection.setWritePriority(writePriority);
-		
-		return connection;
 	}
 	
 	private void scanAtPort(String broadcastIP, Integer scanPort, DriverDeviceScanListener listener, long discoverySleepTime) throws ScanException, ScanInterruptedException, ArgumentSyntaxException {
@@ -304,7 +342,13 @@ public class BACnetDriver implements DriverService {
 	private LocalDevice createLocalDevice(String broadcastIP, String localBindAddress, Integer localPort, Integer deviceInstanceNumber) throws ArgumentSyntaxException, Exception {
 		localPort = (localPort != null) ? localPort : IpNetwork.DEFAULT_PORT;
 		if(localDevices.containsKey(localPort)) {
-			return localDevices.get(localPort);
+			final LocalDevice existingLocalDevice = localDevices.get(localPort);
+			final int existingInstanceId = existingLocalDevice.getConfiguration().getInstanceId();
+			logger.debug("reusing local BACnet device with instance number {} and port 0x{}", existingInstanceId, Integer.toHexString(localPort));
+			if ((deviceInstanceNumber != null) && (!deviceInstanceNumber.equals(existingInstanceId))) {
+				logger.warn("instance number of existing device differs from specified one! (configured: {}, used: {})", existingInstanceId, deviceInstanceNumber);
+			}
+			return existingLocalDevice;
 		}
 		
 		broadcastIP = (broadcastIP != null) ? broadcastIP : IpNetwork.DEFAULT_BROADCAST_IP;
