@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.serotonin</groupId>
   <artifactId>BACnet4J</artifactId>
-  <version>3.2.3-siemens1</version>
+  <version>3.2.3-openmucextensions1</version>
   <dependencies>
     <dependency>
       <groupId>junit</groupId>
