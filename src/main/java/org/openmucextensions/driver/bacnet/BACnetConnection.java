@@ -86,6 +86,7 @@ import com.serotonin.bacnet4j.util.RequestUtils;
  *
  */
 public class BACnetConnection implements Connection, DeviceEventListener {
+	
 	private final static Logger logger = LoggerFactory.getLogger(BACnetConnection.class);
 	
 	private final LocalDevice LOCAL_DEVICE;

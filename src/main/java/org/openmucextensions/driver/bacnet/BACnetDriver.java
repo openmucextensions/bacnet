@@ -80,6 +80,7 @@ public class BACnetDriver implements DriverService {
 	private final Map<Integer, RemoteDevice> remoteDevices = new ConcurrentHashMap<Integer, RemoteDevice>();
 	
 	private volatile boolean deviceScanInterrupted = false;
+	private final Object lock = new Object();
 	
 	private final static DriverInfo driverInfo = new DriverInfo("bacnet", // id
 			// description
@@ -110,7 +111,6 @@ public class BACnetDriver implements DriverService {
 	 */
 	protected void deactivate(ComponentContext context) {
 		localDevicesCache.dismissAll();
-		
 		logger.info("BACnet communication driver deactivated, all local devices terminated");
 	}
 	
@@ -257,7 +257,12 @@ public class BACnetDriver implements DriverService {
 		
 		try {
 			localDevice.sendGlobalBroadcast(new WhoIsRequest());
-			Thread.sleep(discoverySleepTime);
+			
+			// Thread.sleep(discoverySleepTime);
+			synchronized (lock) {
+				lock.wait(discoverySleepTime);
+			}
+			
 		} catch (InterruptedException ignore) {
 			logger.warn("device scan has been interrupted while waiting for responses");
 		}
