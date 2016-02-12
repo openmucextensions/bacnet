@@ -37,6 +37,9 @@ import org.openmuc.framework.driver.spi.RecordsReceivedListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
+import com.google.common.collect.Iterables;
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.RemoteObject;
@@ -203,8 +206,18 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	@Override
 	public Object read(List<ChannelRecordContainer> containers, Object containerListHandle, String samplingGroup)
 			throws UnsupportedOperationException, ConnectionException {
-				
-		PropertyReferences references;
+		
+	    if (logger.isTraceEnabled()) {
+    	    final Iterable<String> channelAddresses = Iterables.transform(containers, new Function<ChannelRecordContainer, String>() {
+                @Override
+                public String apply(ChannelRecordContainer input) {
+                    return input.getChannelAddress();
+                }
+    	    });
+    	    logger.trace("reading value for channels {}", Joiner.on(", ").join(channelAddresses));
+	    }
+	    
+		final PropertyReferences references;
 		
 		if(containerListHandle == null || !(containerListHandle instanceof PropertyReferences)) {
 			references = new PropertyReferences();
@@ -221,18 +234,18 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 			PropertyValues values = RequestUtils.readProperties(LOCAL_DEVICE, REMOTE_DEVICE, references, null);
 			long timestamp = System.currentTimeMillis();
 			
-			for (ChannelRecordContainer container : containers) {
-				ObjectIdentifier identifier = getObjectIdentifier(container);
+			for (ChannelRecordContainer channelRecordContainer : containers) {
+	            final ObjectIdentifier objectIdentifier = getObjectIdentifier(channelRecordContainer);
+	            if (objectIdentifier == null) {
+	                channelRecordContainer.setRecord(new Record(Flag.DRIVER_ERROR_CHANNEL_WITH_THIS_ADDRESS_NOT_FOUND));
+	                continue;
+	            }
 				
-				if(identifier != null) {
-					try {
-						Value value = ConversionUtil.convertValue(values.get(identifier, PropertyIdentifier.presentValue), identifier.getObjectType());
-						container.setRecord(new Record(value, timestamp, Flag.VALID));
-					} catch (PropertyValueException e) {
-						container.setRecord(new Record(Flag.DRIVER_ERROR_READ_FAILURE));
-					}
-				} else {
-					container.setRecord(new Record(Flag.DRIVER_ERROR_CHANNEL_WITH_THIS_ADDRESS_NOT_FOUND));
+				try {
+					Value value = ConversionUtil.convertValue(values.get(objectIdentifier, PropertyIdentifier.presentValue), objectIdentifier.getObjectType());
+					channelRecordContainer.setRecord(new Record(value, timestamp, Flag.VALID));
+				} catch (PropertyValueException e) {
+					channelRecordContainer.setRecord(new Record(Flag.DRIVER_ERROR_READ_FAILURE));
 				}
 			}
 			
@@ -243,10 +256,21 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		return references;
 	}
 
-	private ObjectIdentifier getObjectIdentifier(ChannelRecordContainer container) throws UnsupportedOperationException, ConnectionException {
-		
-		if(container.getChannelHandle()!=null && container.getChannelHandle() instanceof ObjectIdentifier) {
-			return (ObjectIdentifier) container.getChannelHandle();
+    private ObjectIdentifier getObjectIdentifier(ChannelValueContainer container) throws UnsupportedOperationException, ConnectionException {
+        final ObjectIdentifier objectIdentifier = getObjectIdentifier(container.getChannelHandle(), container.getChannelAddress());
+        container.setChannelHandle(objectIdentifier);
+        return objectIdentifier;
+    }
+
+    private ObjectIdentifier getObjectIdentifier(ChannelRecordContainer container) throws UnsupportedOperationException, ConnectionException {
+        final ObjectIdentifier objectIdentifier = getObjectIdentifier(container.getChannelHandle(), container.getChannelAddress());
+        container.setChannelHandle(objectIdentifier);
+        return objectIdentifier;
+    }
+    
+    private ObjectIdentifier getObjectIdentifier(Object origChannelHandle, String channelAddress) throws UnsupportedOperationException, ConnectionException {
+		if(origChannelHandle != null && origChannelHandle instanceof ObjectIdentifier) {
+			return (ObjectIdentifier) origChannelHandle;
 		}
 		
 		if(objectHandles == null) {
@@ -260,8 +284,7 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 			}
 		}
 		
-		ObjectIdentifier objectIdentifier = objectHandles.get(container.getChannelAddress());
-		container.setChannelHandle(objectIdentifier);
+		ObjectIdentifier objectIdentifier = objectHandles.get(channelAddress);
 		
 		return objectIdentifier;
 	}
@@ -273,6 +296,16 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		
 		if(containers == null) return;
 		
+        if (logger.isTraceEnabled()) {
+            final Iterable<String> channelAddresses = Iterables.transform(containers, new Function<ChannelRecordContainer, String>() {
+                @Override
+                public String apply(ChannelRecordContainer input) {
+                    return input.getChannelAddress();
+                }
+            });
+            logger.trace("starting listening for channels {}", Joiner.on(", ").join(channelAddresses));
+        }
+
         UnsignedInteger lifetime = new UnsignedInteger(0);
         com.serotonin.bacnet4j.type.primitive.Boolean issueConfirmedNotifications = new com.serotonin.bacnet4j.type.primitive.Boolean(true);
 		
@@ -281,24 +314,11 @@ public class BACnetConnection implements Connection, DeviceEventListener {
         
 		for (ChannelRecordContainer channelRecordContainer : containers) {
 			
-			ObjectIdentifier objectIdentifier = null;
-			
-			if(channelRecordContainer.getChannelHandle() != null) {
-				objectIdentifier = (ObjectIdentifier) channelRecordContainer.getChannelHandle();
-			} else {
-				if(objectHandles == null) {
-					// scan for channels to get channel handles
-					try {
-						scanForChannels(null);
-					} catch (ArgumentSyntaxException e) {
-						throw new ConnectionException(e);
-					} catch (ScanException e) {
-						throw new ConnectionException(e);
-					}
-				}
-				objectIdentifier = objectHandles.get(channelRecordContainer.getChannelAddress());
-				channelRecordContainer.setChannelHandle(objectIdentifier);
-			}
+            final ObjectIdentifier objectIdentifier = getObjectIdentifier(channelRecordContainer);
+            if (objectIdentifier == null) {
+                channelRecordContainer.setRecord(new Record(Flag.DRIVER_ERROR_CHANNEL_WITH_THIS_ADDRESS_NOT_FOUND));
+                continue;
+            }
 			
 			if(!covContainers.containsKey(objectIdentifier)) {
 				SubscribeCOVRequest request = new SubscribeCOVRequest(subscriberProcessIdentifier, objectIdentifier, issueConfirmedNotifications, lifetime);
@@ -316,35 +336,29 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	public Object write(List<ChannelValueContainer> containers, Object containerListHandle) 
 			throws UnsupportedOperationException, ConnectionException {
 		
+        if (logger.isTraceEnabled()) {
+            final Iterable<String> channelAddresses = Iterables.transform(containers, new Function<ChannelValueContainer, String>() {
+                @Override
+                public String apply(ChannelValueContainer input) {
+                    return input.getChannelAddress();
+                }
+            });
+            logger.trace("writing value to channels {}", Joiner.on(", ").join(channelAddresses));
+        }
+	    
 		// TODO add multiple write
 		
 		for (ChannelValueContainer channelValueContainer : containers) {
-			
-			ObjectIdentifier objectIdentifier = null;
-			
-			if(channelValueContainer.getChannelHandle() != null) {
-				objectIdentifier = (ObjectIdentifier) channelValueContainer.getChannelHandle();
-			} else {
-				if(objectHandles == null) {
-					// scan for channels to get channel handles
-					try {
-						scanForChannels(null);
-					} catch (ArgumentSyntaxException e) {
-						throw new ConnectionException(e);
-					} catch (ScanException e) {
-						throw new ConnectionException(e);
-					}
-				}
-				objectIdentifier = objectHandles.get(channelValueContainer.getChannelAddress());
-				channelValueContainer.setChannelHandle(objectIdentifier);
-			}
+            final ObjectIdentifier objectIdentifier = getObjectIdentifier(channelValueContainer);
+            if (objectIdentifier == null) {
+                channelValueContainer.setFlag(Flag.DRIVER_ERROR_CHANNEL_WITH_THIS_ADDRESS_NOT_FOUND);
+                continue;
+            }
 			
 			if(objectIdentifier != null) {
-				
 				Encodable value = ConversionUtil.convertValue(channelValueContainer.getValue(), objectIdentifier.getObjectType());
 				
 				if(value != null) {
-					
 					UnsignedInteger priority = (writePriority == null) ? null : new UnsignedInteger(writePriority.intValue());
 					
 					WritePropertyRequest request = new WritePropertyRequest(objectIdentifier, PropertyIdentifier.presentValue,
@@ -362,7 +376,7 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		return null; // according to method documentation
 	}
 
-	@Override
+    @Override
 	public void disconnect() {
 		removeSubscriptions();
 		LOCAL_DEVICE.getEventHandler().removeListener(this);
