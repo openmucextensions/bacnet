@@ -2,6 +2,7 @@
 /build/
 /bin/
 target/
+/framework/
 .gradle/
  
 # OS Files #

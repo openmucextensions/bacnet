@@ -11,7 +11,7 @@ import org.openmucextensions.driver.bacnet.BACnetDriver;
 
 public class DriverTest implements DriverDeviceScanListener {
 
-	public static final String noSettings = "";
+	public static final String settings = "discoverySleepTime=2000;scanPort=0xBAC5";
 	
 	private BACnetDriver driver;
 	private List<String> devices = new ArrayList<String>();
@@ -26,13 +26,13 @@ public class DriverTest implements DriverDeviceScanListener {
 		driver.activate(null, null);
 		
 		System.out.println("Scanning for devices...");
-		driver.scanForDevices(noSettings, this);
+		driver.scanForDevices(settings, this);
 		
 		for (String deviceAddress : devices) {
 			
 			System.out.println("\nScanning for channels from device " + deviceAddress);
 			Connection connection = driver.connect(deviceAddress, "port=0xBAC5;instanceNumber=10011");
-			List<ChannelScanInfo> channelInfos = connection.scanForChannels(noSettings);
+			List<ChannelScanInfo> channelInfos = connection.scanForChannels(settings);
 			for (ChannelScanInfo channelScanInfo : channelInfos) {
 				System.out.println(channelScanInfo.getChannelAddress());
 			}
