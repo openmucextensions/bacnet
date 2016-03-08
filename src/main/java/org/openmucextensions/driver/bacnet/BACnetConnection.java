@@ -223,7 +223,12 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		if(containerListHandle == null || !(containerListHandle instanceof PropertyReferences)) {
 			references = new PropertyReferences();
 			for (ChannelRecordContainer container : containers) {
-				ObjectIdentifier identifier = getObjectIdentifier(container);
+				final ObjectIdentifier identifier = getObjectIdentifier(container);
+				if (identifier == null) {
+				    // do not add PropertyReference with "null" identifier to references (since this causes an Exception in BACnet4j)
+				    // logger.warn("identifier for " + container.getChannelAddress() + " is null. Probably unknown BACnet object name.");
+				    continue;
+				}
 				references.add(identifier, PropertyIdentifier.presentValue);
 			}
 		} else {
@@ -231,7 +236,6 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		}
 		
 		try {
-		
 			PropertyValues values = RequestUtils.readProperties(LOCAL_DEVICE, REMOTE_DEVICE, references, null);
 			long timestamp = System.currentTimeMillis();
 			
@@ -243,9 +247,17 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	            }
 				
 				try {
-					Value value = ConversionUtil.convertValue(values.get(objectIdentifier, PropertyIdentifier.presentValue), objectIdentifier.getObjectType());
+				    final Encodable propertyValue = values.get(objectIdentifier, PropertyIdentifier.presentValue);
+				    if (logger.isTraceEnabled()) {
+				        logger.trace("new value for channel {} is type {} with value {}", 
+				                channelRecordContainer.getChannel().getId(), 
+				                propertyValue.getClass().getName(), 
+				                propertyValue.toString());
+				    }
+					final Value value = ConversionUtil.convertValue(propertyValue, objectIdentifier.getObjectType());
 					channelRecordContainer.setRecord(new Record(value, timestamp, Flag.VALID));
 				} catch (PropertyValueException e) {
+				    logger.trace(String.format("error while reading property of channel %s", channelRecordContainer.getChannel().getId()), e);
 					channelRecordContainer.setRecord(new Record(Flag.DRIVER_ERROR_READ_FAILURE));
 				}
 			}
@@ -284,10 +296,7 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 				throw new ConnectionException(e);
 			}
 		}
-		
-		ObjectIdentifier objectIdentifier = objectHandles.get(channelAddress);
-		
-		return objectIdentifier;
+		return objectHandles.get(channelAddress);
 	}
 
 
