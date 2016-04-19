@@ -141,6 +141,7 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		
 		if(LOCAL_DEVICE == null) throw new ConnectionException("Local device instance is null");
 		if(REMOTE_DEVICE == null) throw new ConnectionException("Remote device instance is null");
+		logger.trace("starting scanForChannes with settings {} on remote device {}...", settings, REMOTE_DEVICE.getInstanceNumber());
 		
 		if(!testConnection()) throw new ConnectionException("Remote device " + REMOTE_DEVICE.getInstanceNumber() + " is not reachable");
 		
@@ -155,8 +156,10 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 			List<ObjectIdentifier> objectIdentifiers = ((SequenceOf<ObjectIdentifier>) RequestUtils.sendReadPropertyAllowNull(
 					LOCAL_DEVICE, REMOTE_DEVICE, REMOTE_DEVICE.getObjectIdentifier(), PropertyIdentifier.objectList)).getValues();
 		
+			logger.trace("got basic information of {} objects. Filter by supported types...", objectIdentifiers.size());
 			// filter object identifiers to just get accepted ones (see constructor)
 			objectIdentifiers = getAcceptedObjects(objectIdentifiers);
+			logger.trace("getting detailed information of {} channels...", objectIdentifiers.size());
 			
 			// request name and description for each accepted object
 			for (ObjectIdentifier objectIdentifier : objectIdentifiers) {
@@ -201,6 +204,7 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 			}
 		}
 		
+        logger.trace("scanForChannels finished on remote device {}.", REMOTE_DEVICE.getInstanceNumber());
 		return channelScanInfos;
 	}
 
