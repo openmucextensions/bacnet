@@ -182,7 +182,15 @@ public class BACnetDriver implements DriverService {
 		try {
 			String broadcastIP = settings.get(SETTING_BROADCAST_IP);
 			String localBindAddress = settings.get(SETTING_LOCALBIND_ADDRESS);
-			Integer localDevicePort = (settings.containsKey(SETTING_LOCAL_PORT)) ? parsePort(settings.get(SETTING_LOCAL_PORT)) : null;
+			final Integer localDevicePort;
+			if (settings.containsKey(SETTING_LOCAL_PORT))
+			    localDevicePort = parsePort(settings.get(SETTING_LOCAL_PORT));
+			else {
+	            if (settings.containsKey(SETTING_REMOTE_PORT))
+	                localDevicePort = parsePort(settings.get(SETTING_REMOTE_PORT));
+	            else
+	                localDevicePort = null;
+			}
 			Integer localDeviceInstanceNumber = (settings.containsKey(SETTING_LOCAL_DVC_INSTANCENUMBER)) ? parseDeviceAddress(settings.get(SETTING_LOCAL_DVC_INSTANCENUMBER)) : null;
 			isServer = (settings.containsKey(SETTING_ISSERVER)) ? Boolean.parseBoolean(settings.get(SETTING_ISSERVER)) : Boolean.FALSE;
 			

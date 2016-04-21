@@ -198,8 +198,10 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		} catch (BACnetException e) {
 			// distinguish between scan exception and connection exception
 			if(testConnection()) {
+			    logger.error("Error while scanning: " + e.getMessage(), e);
 				throw new ScanException("Error while scanning: " + e.getMessage(), e);
 			} else {
+                logger.error("Remote device " + REMOTE_DEVICE.getInstanceNumber() + " is not reachable", e);
 				throw new ConnectionException("Remote device " + REMOTE_DEVICE.getInstanceNumber() + " is not reachable");
 			}
 		}
