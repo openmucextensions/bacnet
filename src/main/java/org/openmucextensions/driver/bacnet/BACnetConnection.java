@@ -255,7 +255,7 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 				try {
 				    final Encodable propertyValue = values.get(objectIdentifier, PropertyIdentifier.presentValue);
 				    if (logger.isTraceEnabled()) {
-				        logger.trace("new value for channel {} is type {} with value {}", 
+				        logger.trace("read new value for channel {} is type {} with value {}", 
 				                channelRecordContainer.getChannel().getId(), 
 				                propertyValue.getClass().getName(), 
 				                propertyValue.toString());
@@ -472,12 +472,22 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	public void covNotificationReceived(UnsignedInteger subscriberProcessIdentifier, RemoteDevice initiatingDevice,
 			ObjectIdentifier monitoredObjectIdentifier, UnsignedInteger timeRemaining, SequenceOf<PropertyValue> listOfValues) {
 		
+	    if (!REMOTE_DEVICE.equals(initiatingDevice)) {
+	        return;
+	    }
+	    
 		if(recordsReceivedListener != null) {
 			
 			ChannelRecordContainer container = covContainers.get(monitoredObjectIdentifier);
 			
 			if(container != null) {
-				
+                if (logger.isTraceEnabled()) {
+                    logger.trace("received (listener) new value for channel {} is type {} with value {}", 
+                            container.getChannel().getId(), 
+                            listOfValues.get(1).getValue().getClass().getName(), 
+                            listOfValues.get(1).getValue().toString());
+                }
+
 				Record record = new Record(ConversionUtil.convertValue(listOfValues.get(1).getValue(), monitoredObjectIdentifier.getObjectType()), 
 						new Long(System.currentTimeMillis()), Flag.VALID);
 
