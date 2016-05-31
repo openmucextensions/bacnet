@@ -263,7 +263,11 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 					final Value value = ConversionUtil.convertValue(propertyValue, objectIdentifier.getObjectType());
 					channelRecordContainer.setRecord(new Record(value, timestamp, Flag.VALID));
 				} catch (PropertyValueException e) {
-				    logger.trace(String.format("error while reading property of channel %s", channelRecordContainer.getChannel().getId()), e);
+				    logger.warn(String.format("error while reading property of channel %s", channelRecordContainer.getChannel().getId()), e);
+				    try {
+				        logger.warn("BACnet read-error caused by {}", values.toString());
+				    }
+				    catch (Throwable t) {}
 					channelRecordContainer.setRecord(new Record(Flag.DRIVER_ERROR_READ_FAILURE));
 				}
 			}
