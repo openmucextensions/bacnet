@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.openmuc.framework.config.ArgumentSyntaxException;
 import org.openmuc.framework.config.ChannelScanInfo;
@@ -456,10 +457,14 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 
 
 	@Override
-	public void listenerException(Throwable e) { }
+	public void listenerException(Throwable e) { 
+	    logger.trace(String.format("%s: received listenerException on connection to remote %s", LOCAL_DEVICE.getConfiguration().getId(), REMOTE_DEVICE.getName()),e);
+	}
 
 	@Override
-	public void iAmReceived(RemoteDevice d) { }
+	public void iAmReceived(RemoteDevice d) { 
+        logger.trace(String.format("%s: received iAm from remote %s", LOCAL_DEVICE.getConfiguration().getId(), d.getName()));
+	}
 
 	@Override
 	public boolean allowPropertyWrite(Address from, BACnetObject obj, PropertyValue pv) {
@@ -467,10 +472,15 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	}
 
 	@Override
-	public void propertyWritten(Address from, BACnetObject obj, PropertyValue pv) { }
+	public void propertyWritten(Address from, BACnetObject obj, PropertyValue pv) { 
+        logger.trace(String.format("%s: received propertyWritten from %s, to object %s, property %s", LOCAL_DEVICE.getConfiguration().getId(), 
+                from.toString(), obj.getObjectName(), pv));
+	}
 
 	@Override
-	public void iHaveReceived(RemoteDevice d, RemoteObject o) { }
+	public void iHaveReceived(RemoteDevice d, RemoteObject o) { 
+        logger.trace(String.format("%s: received iHave from remote %s for object %s", LOCAL_DEVICE.getConfiguration().getId(), d.getName(), o.getObjectName()));
+	}
 
 	@Override
 	public void covNotificationReceived(UnsignedInteger subscriberProcessIdentifier, RemoteDevice initiatingDevice,
@@ -484,7 +494,18 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 			
 			ChannelRecordContainer container = covContainers.get(monitoredObjectIdentifier);
 			
-			if(container != null) {
+			if(container == null) {
+                if (logger.isTraceEnabled()) {
+                    logger.trace("received (listener) cov notification from {} for unknown ObjectIdentifier {} with values {}", 
+                            initiatingDevice.getName(), monitoredObjectIdentifier,
+                            listOfValues.getValues().stream()
+                                .map(PropertyValue::getValue)
+                                .map(v -> String.format("type: %s, value: %s", v.getClass().getName(), v))
+                                .collect(Collectors.joining("; "))
+                            );
+                }
+			}
+			else {
                 if (logger.isTraceEnabled()) {
                     logger.trace("received (listener) new value for channel {} is type {} with value {}", 
                             container.getChannel().getId(), 
@@ -509,19 +530,28 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	public void eventNotificationReceived(UnsignedInteger processIdentifier, RemoteDevice initiatingDevice,
 			ObjectIdentifier eventObjectIdentifier, TimeStamp timeStamp, UnsignedInteger notificationClass, UnsignedInteger priority,
 			EventType eventType, CharacterString messageText, NotifyType notifyType, com.serotonin.bacnet4j.type.primitive.Boolean ackRequired,
-			EventState fromState, EventState toState, NotificationParameters eventValues) { }
+			EventState fromState, EventState toState, NotificationParameters eventValues) { 
+        logger.trace(String.format("%s: received eventNotification from remote device %s with objectIdentifier %s, event-/notificationType %s/%s and message %s", LOCAL_DEVICE.getConfiguration().getId(), 
+                initiatingDevice.getName(), eventObjectIdentifier, eventType, notifyType, messageText));
+	}
  
 
 	@Override
 	public void textMessageReceived(RemoteDevice textMessageSourceDevice, Choice messageClass, MessagePriority messagePriority,
-			CharacterString message) { }
+			CharacterString message) { 
+        logger.trace(String.format("%s: received text-message from remote device %s: %s", LOCAL_DEVICE.getConfiguration().getId(), 
+                textMessageSourceDevice.getName(), message));
+	}
 
 	@Override
 	public void privateTransferReceived(Address from, UnsignedInteger vendorId,
 			UnsignedInteger serviceNumber, Sequence serviceParameters) { }
 
 	@Override
-	public void reinitializeDevice(Address from, ReinitializedStateOfDevice reinitializedStateOfDevice) { }
+	public void reinitializeDevice(Address from, ReinitializedStateOfDevice reinitializedStateOfDevice) { 
+        logger.trace(String.format("%s: reinitializeDevice request received from %s with state %s", LOCAL_DEVICE.getConfiguration().getId(), 
+                from, reinitializedStateOfDevice));
+	}
 
 	@Override
 	public void synchronizeTime(Address from, DateTime dateTime, boolean utc) { }
@@ -536,5 +566,4 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		LOCAL_DEVICE.send(REMOTE_DEVICE, request);
 		return true;
 	}
-	
 }

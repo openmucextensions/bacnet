@@ -37,10 +37,11 @@ public class BACnetObjectChangeListener implements BACnetObjectListener {
     public void propertyChange(PropertyIdentifier pid, Encodable oldValue, Encodable newValue) {
         if (!pid.equals(PropertyIdentifier.presentValue)) {
             // currently not implemented
-            logger.debug("propertyChange notification of {} not implemented yet", pid);
+            logger.info("Channel {}/{}: propertyChange notification of {} not implemented yet", channelRecordContainer.getChannel().getId(), channelRecordContainer.getChannelAddress(), pid);
             return;
         }
-        logger.debug("propertyChange notification of {} from value {} to {}", pid, oldValue, newValue);
+        logger.debug("Channel {}/{}: propertyChange notification of {} from value {} to {}", channelRecordContainer.getChannel().getId(), channelRecordContainer.getChannelAddress(),
+                pid, oldValue, newValue);
         final Record record = new Record(ConversionUtil.convertValue(newValue, objectType), 
                 new Long(System.currentTimeMillis()), Flag.VALID);
 

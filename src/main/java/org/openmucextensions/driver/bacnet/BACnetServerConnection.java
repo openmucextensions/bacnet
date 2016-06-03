@@ -87,7 +87,7 @@ public class BACnetServerConnection implements Connection {
             channelRecordContainer.setChannelHandle(channelHandle);
             // get initial value and notify listeners
             try {
-                final Value value = ConversionUtil.convertValue(channelHandle.getProperty(PropertyIdentifier.presentValue), getObjectTypeOfBACnetObject(channelHandle));
+                final Value value = ConversionUtil.convertValue((Encodable)channelHandle.getProperty(PropertyIdentifier.presentValue), getObjectTypeOfBACnetObject(channelHandle));
                 channelRecordContainer.setRecord(new Record(value, System.currentTimeMillis(), Flag.VALID));
                 continue;
             }
