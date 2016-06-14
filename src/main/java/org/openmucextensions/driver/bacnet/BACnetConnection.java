@@ -103,6 +103,9 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	
 	private Map<ObjectIdentifier, ChannelRecordContainer> covContainers = new ConcurrentHashMap<ObjectIdentifier, ChannelRecordContainer>();
 	private RecordsReceivedListener recordsReceivedListener = null;
+	/** List of objects with COV-subscription sent but no notification received */
+	private List<ObjectIdentifier> openCOVNotifications = new ArrayList<>();
+	private Thread openCOVsInfoThread = null;
 	
 	/**
 	 * Constructs a new <code>BACnetConnection</code> object for the specified remote device.
@@ -326,6 +329,9 @@ public class BACnetConnection implements Connection, DeviceEventListener {
                 continue;
             }
 			
+            synchronized (openCOVNotifications) {
+                openCOVNotifications.add(objectIdentifier);
+            }
 			if(!covContainers.containsKey(objectIdentifier)) {
 				SubscribeCOVRequest request = new SubscribeCOVRequest(subscriberProcessIdentifier, objectIdentifier, issueConfirmedNotifications, lifetime);
 				LOCAL_DEVICE.send(REMOTE_DEVICE, request);
@@ -336,6 +342,10 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		
 		recordsReceivedListener = listener;
 		
+		if (openCOVsInfoThread == null) {
+		    openCOVsInfoThread = new Thread(new OpenCOVsInfoThread());
+		    openCOVsInfoThread.start();
+		}
 	}
 
 	@Override
@@ -381,6 +391,9 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	public void disconnect() {
 		removeSubscriptions();
 		LOCAL_DEVICE.getEventHandler().removeListener(this);
+		if (openCOVsInfoThread != null) {
+		    openCOVsInfoThread.interrupt();
+		}
 	}
 	
 	// filters object types that can be read/written by the driver 
@@ -431,6 +444,9 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 			for (ObjectIdentifier object : covContainers.keySet()) {
 				LOCAL_DEVICE.send(REMOTE_DEVICE, new SubscribeCOVRequest(subscriberProcessIdentifier, object, null, null));
 				covContainers.remove(object);
+	            synchronized (openCOVNotifications) {
+	                openCOVNotifications.remove(object);
+	            }
 			}
 		}
 	}
@@ -469,6 +485,10 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	    if (!REMOTE_DEVICE.equals(initiatingDevice)) {
 	        return;
 	    }
+	    
+        synchronized (openCOVNotifications) {
+            openCOVNotifications.remove(monitoredObjectIdentifier);
+        }
 	    
 		if(recordsReceivedListener != null) {
 			
@@ -545,5 +565,25 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		ConfirmedRequestService request = new ReadPropertyRequest(REMOTE_DEVICE.getObjectIdentifier(), PropertyIdentifier.systemStatus);
 		LOCAL_DEVICE.send(REMOTE_DEVICE, request);
 		return true;
+	}
+	
+	private class OpenCOVsInfoThread implements Runnable {
+        @Override
+        public void run() {
+            try {
+                while (!Thread.interrupted()) {
+                    Thread.sleep(60*60*1000);
+                    final String objectIds;
+                    final int size;
+                    synchronized (openCOVNotifications) {
+                        objectIds = openCOVNotifications.stream().map(ObjectIdentifier::toString).collect(Collectors.joining(","));
+                        size = openCOVNotifications.size();
+                    }
+                    logger.info("there are {} open COV subscriptions without notification: {}", size, objectIds);
+                }
+            }
+            catch (InterruptedException e) {
+            }
+        }
 	}
 }
