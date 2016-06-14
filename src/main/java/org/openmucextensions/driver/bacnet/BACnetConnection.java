@@ -38,9 +38,6 @@ import org.openmuc.framework.driver.spi.RecordsReceivedListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
-import com.google.common.collect.Iterables;
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.RemoteObject;
@@ -132,9 +129,7 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		acceptedTypes.put(ObjectType.multiStateValue, new ObjectTypeInfo(ValueType.INTEGER, null, Boolean.TRUE, Boolean.TRUE));
 	
 		LOCAL_DEVICE.getEventHandler().addListener(this);
-	
 	}
-	
 
 	@Override
 	public List<ChannelScanInfo> scanForChannels(String settings)
@@ -216,13 +211,8 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 			throws UnsupportedOperationException, ConnectionException {
 		
 	    if (logger.isTraceEnabled()) {
-    	    final Iterable<String> channelAddresses = Iterables.transform(containers, new Function<ChannelRecordContainer, String>() {
-                @Override
-                public String apply(ChannelRecordContainer input) {
-                    return input.getChannelAddress();
-                }
-    	    });
-    	    logger.trace("reading value for channels {}", Joiner.on(", ").join(channelAddresses));
+            final String channelAddresses = containers.stream().map(ChannelRecordContainer::getChannelAddress).collect(Collectors.joining(","));
+            logger.trace("reading value for channels {}", channelAddresses);
 	    }
 	    
 		final PropertyReferences references;
@@ -318,13 +308,8 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		if(containers == null) return;
 		
         if (logger.isTraceEnabled()) {
-            final Iterable<String> channelAddresses = Iterables.transform(containers, new Function<ChannelRecordContainer, String>() {
-                @Override
-                public String apply(ChannelRecordContainer input) {
-                    return input.getChannelAddress();
-                }
-            });
-            logger.trace("starting listening for channels {}", Joiner.on(", ").join(channelAddresses));
+            final String channelAddresses = containers.stream().map(ChannelRecordContainer::getChannelAddress).collect(Collectors.joining(","));
+            logger.trace("starting listening for channels {}", channelAddresses);
         }
 
         UnsignedInteger lifetime = new UnsignedInteger(0);
@@ -358,13 +343,8 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 			throws UnsupportedOperationException, ConnectionException {
 		
         if (logger.isTraceEnabled()) {
-            final Iterable<String> channelAddresses = Iterables.transform(containers, new Function<ChannelValueContainer, String>() {
-                @Override
-                public String apply(ChannelValueContainer input) {
-                    return input.getChannelAddress();
-                }
-            });
-            logger.trace("writing value to channels {}", Joiner.on(", ").join(channelAddresses));
+            final String channelAddresses = containers.stream().map(ChannelValueContainer::getChannelAddress).collect(Collectors.joining(","));
+            logger.trace("writing value to channels {}", channelAddresses);
         }
 	    
 		// TODO add multiple write

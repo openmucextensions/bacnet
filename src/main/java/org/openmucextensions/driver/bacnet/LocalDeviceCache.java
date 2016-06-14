@@ -8,8 +8,6 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.HashMultiset;
-import com.google.common.collect.Multiset;
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.npdu.ip.IpNetwork;
 import com.serotonin.bacnet4j.npdu.ip.IpNetworkBuilder;
@@ -30,7 +28,7 @@ public class LocalDeviceCache {
     /** Number of references of the local device stored in the map {@link #localDevices}. 
      *  (=how often {@link #obtainLocalDevice(String, String, Integer, Integer)}
      *  was called for this port). */
-    private final Multiset<Integer> localDeviceReferences = HashMultiset.create();
+    private final Map<Integer, Integer> localDeviceReferences = new HashMap<>();
     private int nextDeviceInstanceNumber = 10000;
 
     /**
@@ -47,7 +45,7 @@ public class LocalDeviceCache {
                 if ((deviceInstanceNumber != null) && (!deviceInstanceNumber.equals(existingInstanceId))) {
                     logger.warn("instance number of existing device differs from specified one! (configured: {}, used: {})", existingInstanceId, deviceInstanceNumber);
                 }
-                localDeviceReferences.add(localPort);
+                increaseDeviceReference(localPort);
                 return existingLocalDevice;
             }
             
@@ -63,8 +61,37 @@ public class LocalDeviceCache {
             logger.debug("created local BACnet device with instance number {} and port 0x{}", deviceInstanceNumber, Integer.toHexString(localPort));
             
             localDevices.put(localPort, device);
-            localDeviceReferences.add(localPort);
+            increaseDeviceReference(localPort);
             return device;
+        }
+    }
+
+    private void increaseDeviceReference(int localPort) {
+        synchronized(localDeviceReferences) {
+            Integer numberOfReferences = localDeviceReferences.get(localPort);
+            if (numberOfReferences == null)
+                numberOfReferences = 0;
+            localDeviceReferences.put(localPort, numberOfReferences + 1);
+        }
+    }
+
+    /**
+     * decrease the number of device references.
+     * @param localPort
+     * @return <code>true</code> if there are references left, 
+     * <code>false</code> if there are no more references.
+     */
+    private boolean decreaseDeviceReference(int localPort) {
+        synchronized(localDeviceReferences) {
+            final Integer numberOfReferences = localDeviceReferences.get(localPort);
+            if (numberOfReferences == null)
+                return false;
+            if (numberOfReferences == 1) {
+                localDeviceReferences.remove(localPort);
+                return false;
+            }
+            localDeviceReferences.put(localPort, numberOfReferences - 1);
+            return true;
         }
     }
 
@@ -75,8 +102,8 @@ public class LocalDeviceCache {
      */
     void dismissLocalDevice(Integer port) {
         synchronized (localDevices) {
-            localDeviceReferences.remove(port);
-            if (!localDeviceReferences.contains(port)) {
+            final boolean referencesLeft = decreaseDeviceReference(port);
+            if (!referencesLeft) {
                 // no more references to this device --> remove it from cache and terminate it
                 final LocalDevice localDevice = localDevices.remove(port);
                 logger.debug("local device {} will be terminated", localDevice.getConfiguration().getInstanceId());
@@ -89,7 +116,7 @@ public class LocalDeviceCache {
      * Dismiss all cached {@link LocalDevice}s.
      */
     void dismissAll() {
-        Collection<Integer> ports = new ArrayList<Integer>(localDeviceReferences.elementSet());
+        Collection<Integer> ports = new ArrayList<Integer>(localDeviceReferences.keySet());
         for (Integer devicePort : ports) {
             dismissLocalDevice(devicePort);
         }

@@ -17,6 +17,7 @@
 package org.openmucextensions.driver.bacnet;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.openmuc.framework.config.ArgumentSyntaxException;
@@ -35,9 +36,6 @@ import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.exception.BACnetException;
@@ -203,11 +201,9 @@ public class BACnetDriver implements DriverService {
 		    final DriverConfig driverConfig = configService.getConfig().getDriver(driverInfo.getId());
 		    
 		    // try to find the device-configuration by address and settings-string
-		    final Optional<DeviceConfig> deviceConfig = Iterables.tryFind(driverConfig.getDevices(), new Predicate<DeviceConfig>() {
-                @Override
-                public boolean apply(DeviceConfig dc) {
-                    return (deviceAddress.equals(dc.getDeviceAddress()) && settingsString.equals(dc.getSettings()));
-                }});
+		    final Optional<DeviceConfig> deviceConfig = driverConfig.getDevices().stream()
+		        .filter(dc -> deviceAddress.equals(dc.getDeviceAddress()) && settingsString.equals(dc.getSettings()))
+		        .findAny();
             if (!deviceConfig.isPresent()) {
                 throw new InternalError(String.format("cannot find deviceConfig for address {}", deviceAddress));
             }

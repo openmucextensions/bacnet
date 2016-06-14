@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import org.openmuc.framework.config.ArgumentSyntaxException;
 import org.openmuc.framework.config.ChannelConfig;
@@ -23,9 +24,6 @@ import org.openmuc.framework.driver.spi.RecordsReceivedListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.exception.BACnetRuntimeException;
 import com.serotonin.bacnet4j.exception.BACnetServiceException;
@@ -138,12 +136,9 @@ public class BACnetServerConnection implements Connection {
      * @return the found object or <code>null</code> if the object was not found.
      */
     private BACnetObject findLocalObjectByName(final String objectName) {
-        return Iterables.tryFind(localDevice.getLocalObjects(), new Predicate<BACnetObject>() {
-                @Override
-                public boolean apply(BACnetObject bo) {
-                    return bo.getObjectName().equals(objectName);
-                }})
-            .orNull();
+        return localDevice.getLocalObjects().stream()
+                .filter(bo -> bo.getObjectName().equals(objectName))
+                .findAny().orElse(null);
     }
 
     /**
@@ -188,7 +183,7 @@ public class BACnetServerConnection implements Connection {
         }
         catch (NoSuchFieldException e) {
             logger.error("invalid configuration: object type of channel with id {} has invalid value {}. Expected one of {}", 
-                    channelId, configObjectType, Joiner.on(",").join(BACnetUtils.getAllObjectTypesAsString()));
+                    channelId, configObjectType, BACnetUtils.getAllObjectTypesAsString().stream().collect(Collectors.joining(",")));
             channelAddressesWithInvalidConfiguration.add(channelAddress);
             return;
         }
@@ -204,7 +199,7 @@ public class BACnetServerConnection implements Connection {
         }
         catch (NoSuchFieldException e) {
             logger.error("invalid configuration: engineering unit of channel with id {} has invalid value {}. Expected one of {}", 
-                    channelId, configEngUnit, Joiner.on(",").join(BACnetUtils.getAllEngineeringUnitsAsString()));
+                    channelId, configEngUnit, BACnetUtils.getAllEngineeringUnitsAsString().stream().collect(Collectors.joining(",")));
             channelAddressesWithInvalidConfiguration.add(channelAddress);
             return;
         }
