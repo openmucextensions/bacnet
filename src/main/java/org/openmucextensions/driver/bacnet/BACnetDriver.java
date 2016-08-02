@@ -16,6 +16,7 @@
  */
 package org.openmucextensions.driver.bacnet;
 
+import java.net.InetAddress;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -42,7 +43,9 @@ import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.exception.BACnetException;
 import com.serotonin.bacnet4j.npdu.ip.IpNetwork;
+import com.serotonin.bacnet4j.npdu.ip.IpNetworkUtils;
 import com.serotonin.bacnet4j.service.unconfirmed.WhoIsRequest;
+import com.serotonin.bacnet4j.type.constructed.Address;
 import com.serotonin.bacnet4j.util.DiscoveryUtils;
 
 /**
@@ -68,6 +71,8 @@ public class BACnetDriver implements DriverService {
 	private final static String SETTING_LOCAL_DVC_INSTANCENUMBER = "localInstanceNumber";
 	/** Setting-name for the UDP port of the remote device */
 	private final static String SETTING_REMOTE_PORT = "remoteDevicePort";
+	/** Setting-name for the IP host address */
+	private final static String SETTING_HOST_IP = "hostIp";
 	/** Setting-name for the flag whether this device is a BACnet server */
 	private final static String SETTING_ISSERVER = "isServer";
 
@@ -90,7 +95,7 @@ public class BACnetDriver implements DriverService {
 			// settings
 			"No settings possible",
 			// channel address
-			"The technical designation is used as channel address",
+			"BACnet device instance number is used as device address, optional host IP address e.g.: <instance_number>[;<host_ip>]",
 			// device scan parameters
 			"No settings possible");
 	
@@ -173,7 +178,9 @@ public class BACnetDriver implements DriverService {
 	public Connection connect(final String deviceAddress, final String settingsString)
 			throws ArgumentSyntaxException, ConnectionException {
 		
-		Integer remoteInstance = parseDeviceAddress(deviceAddress);
+	    DeviceAddress d = parseDeviceAddress(deviceAddress);
+	    String hostIp = d.hostIp();
+	    Integer remoteInstance = d.remoteInstance();
 		
 		Settings settings = new Settings(settingsString);
 		
@@ -191,7 +198,7 @@ public class BACnetDriver implements DriverService {
 	            else
 	                localDevicePort = null;
 			}
-			Integer localDeviceInstanceNumber = (settings.containsKey(SETTING_LOCAL_DVC_INSTANCENUMBER)) ? parseDeviceAddress(settings.get(SETTING_LOCAL_DVC_INSTANCENUMBER)) : null;
+			Integer localDeviceInstanceNumber = (settings.containsKey(SETTING_LOCAL_DVC_INSTANCENUMBER)) ? parseDeviceAddress(settings.get(SETTING_LOCAL_DVC_INSTANCENUMBER)).remoteInstance() : null;
 			isServer = (settings.containsKey(SETTING_ISSERVER)) ? Boolean.parseBoolean(settings.get(SETTING_ISSERVER)) : Boolean.FALSE;
 			
 			localDevice = localDevicesCache.obtainLocalDevice(broadcastIP, localBindAddress, localDevicePort, localDeviceInstanceNumber);
@@ -217,20 +224,28 @@ public class BACnetDriver implements DriverService {
 		}
 		else {
     		if(!remoteDevices.containsKey(remoteInstance)) {
-    			try {
-    			    // remote device not found in cached ones --> re-scan for devices
-    				final Settings scanSettings = new Settings();
-    				scanSettings.put(SETTING_BROADCAST_IP, settings.get(SETTING_BROADCAST_IP));
-    				scanSettings.put(SETTING_LOCALBIND_ADDRESS, settings.get(SETTING_LOCALBIND_ADDRESS));
-    				scanSettings.put(SETTING_SCAN_PORT, settings.get(SETTING_REMOTE_PORT));
-    				scanForDevices(scanSettings.toSettingsString(), null);
-    			} catch (UnsupportedOperationException ignore) {
-    				throw new AssertionError();
-    			} catch (ScanException e) {
-    				throw new ConnectionException(e.getMessage());
-    			} catch (ScanInterruptedException ignore) {
-    				// scan not started by framework, so don't propagate exception
-    			}
+    		 // remote device not found in cached ones
+    		    
+                if (!hostIp.isEmpty()) {
+                    // --> addRemoteDevice with hostIp
+                    addRemoteDevice(remoteInstance, hostIp, settings, localDevice);
+                }
+                else {
+                    try {
+                        // --> re-scan for devices
+                        final Settings scanSettings = new Settings();
+                        scanSettings.put(SETTING_BROADCAST_IP, settings.get(SETTING_BROADCAST_IP));
+                        scanSettings.put(SETTING_LOCALBIND_ADDRESS, settings.get(SETTING_LOCALBIND_ADDRESS));
+                        scanSettings.put(SETTING_SCAN_PORT, settings.get(SETTING_REMOTE_PORT));
+                        scanForDevices(scanSettings.toSettingsString(), null);
+                    } catch (UnsupportedOperationException ignore) {
+                        throw new AssertionError();
+                    } catch (ScanException e) {
+                        throw new ConnectionException(e.getMessage());
+                    } catch (ScanInterruptedException ignore) {
+                        // scan not started by framework, so don't propagate exception
+                    }
+                }
     		}
     		
     		RemoteDevice remoteDevice = remoteDevices.get(remoteInstance);
@@ -251,6 +266,22 @@ public class BACnetDriver implements DriverService {
 			return connection;
 		}
 	}
+
+	private void addRemoteDevice(Integer remoteInstance, String hostIp, Settings settings, LocalDevice localDevice)
+	            throws ArgumentSyntaxException, ConnectionException {
+	        int port = parsePort(settings.get(SETTING_REMOTE_PORT));
+	
+	        Address address = IpNetworkUtils.toAddress(hostIp, port);
+	
+	        RemoteDevice remoteDevice = null;
+	        try {
+	            remoteDevice = localDevice.findRemoteDevice(address, remoteInstance);
+	        } catch (BACnetException e1) {
+	            throw new ConnectionException(e1.getMessage());
+	        }
+	
+	        remoteDevices.put(remoteDevice.getInstanceNumber(), remoteDevice);
+	    }
 	
 	private void scanAtPort(String broadcastIP, Integer scanPort, DriverDeviceScanListener listener, long discoverySleepTime) throws ScanException, ScanInterruptedException, ArgumentSyntaxException {
 		if (scanPort == null)
@@ -278,13 +309,15 @@ public class BACnetDriver implements DriverService {
 		logger.debug("found {} remote device(s) from scan at port 0x{}", localDevice.getRemoteDevices().size(), Integer.toHexString(scanPort.intValue())); 
 		 
         for (RemoteDevice device : localDevice.getRemoteDevices()) {
-        	
+
+            InetAddress hostIp = IpNetworkUtils.getInetAddress(device.getAddress().getMacAddress());
+
         	if(deviceScanInterrupted) throw new ScanInterruptedException();
         	
         	try {
 				DiscoveryUtils.getExtendedDeviceInformation(localDevice, device);
 			} catch (BACnetException e) {
-				logger.warn("error while reading extended device information from device " + device.getInstanceNumber());
+			    logger.warn("error while reading extended device information from device {};{}", device.getInstanceNumber(), hostIp.getHostAddress());
 			}
 			remoteDevices.put(device.getInstanceNumber(), device);
 			
@@ -292,8 +325,9 @@ public class BACnetDriver implements DriverService {
 				final Settings scanSettings = new Settings();
 				if (broadcastIP != null)
 					scanSettings.put(SETTING_BROADCAST_IP, broadcastIP);
+				String deviceAddress = Integer.toString(device.getInstanceNumber()) + ';' + hostIp.getHostAddress();
 				scanSettings.put(SETTING_REMOTE_PORT, scanPort.toString());
-				listener.deviceFound(new DeviceScanInfo(Integer.toString(device.getInstanceNumber()), scanSettings.toSettingsString(), device.getName()));
+				listener.deviceFound(new DeviceScanInfo(deviceAddress, scanSettings.toSettingsString(), device.getName()));
 			}
 		}
         
@@ -305,7 +339,7 @@ public class BACnetDriver implements DriverService {
 	
 	private int parsePort(String port) throws ArgumentSyntaxException {
 		try {
-			return Integer.decode(port).intValue();
+			return Integer.decode(port);
 		} catch (NumberFormatException e) {
 			throw new ArgumentSyntaxException("port value is not a number");
 		}
@@ -323,21 +357,46 @@ public class BACnetDriver implements DriverService {
 		}
 	}
 	
-	private Integer parseDeviceAddress(String deviceAddress) throws ArgumentSyntaxException {
-		
-		int result;
-		
-		try {
-			result = Integer.parseInt(deviceAddress);
-		} catch (NumberFormatException e) {
-			throw new ArgumentSyntaxException("Argument deviceAddress is not a number");
-		}
-	
-		// accoring to the BTL device implementation guidelines, the device instance number
-		// shall be configurable in the range of 0 to 4194302
-		if(result < 0 || result > 4194302)
-			throw new ArgumentSyntaxException("Argument deviceAddress must be in the range of 0 to 4194302");
-		
-		return new Integer(result);
-	}
+    private DeviceAddress parseDeviceAddress(String deviceAddress) throws ArgumentSyntaxException {
+            Integer remoteInstance;
+            String hostIp = "";
+     
+            String[] addressArray = deviceAddress.split(";");
+     
+             try {
+                remoteInstance = Integer.parseInt(addressArray[0]);
+             } catch (NumberFormatException e) {
+                throw new ArgumentSyntaxException("First argument of deviceAddress is not a number.");
+             }
+     
+            // according to the BTL device implementation guidelines, the device instance number
+             // shall be configurable in the range of 0 to 4194302
+            if (remoteInstance < 0 || remoteInstance > 4194302) {
+                throw new ArgumentSyntaxException("First argument of deviceAddress must be in the range of 0 to 4194302");
+             }
+     
+            if (addressArray.length == 2) {
+                hostIp = addressArray[1];
+            }
+    
+            return new DeviceAddress(hostIp, remoteInstance);
+    }
+    
+    private class DeviceAddress {
+        private String hostIp;
+        private Integer remoteInstance;
+    
+        DeviceAddress(String hostIp, Integer remoteInstance) {
+            this.hostIp = hostIp;
+            this.remoteInstance = remoteInstance;
+        }
+    
+        String hostIp() {
+            return hostIp;
+        }
+    
+        Integer remoteInstance() {
+            return remoteInstance;
+        }
+    }
 }
