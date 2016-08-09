@@ -105,7 +105,6 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	private RecordsReceivedListener recordsReceivedListener = null;
 	/** List of objects with COV-subscription sent but no notification received */
 	private List<ObjectIdentifier> openCOVNotifications = new ArrayList<>();
-	private Thread openCOVsInfoThread = null;
 	
 	/**
 	 * Constructs a new <code>BACnetConnection</code> object for the specified remote device.
@@ -341,11 +340,6 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		} // foreach
 		
 		recordsReceivedListener = listener;
-		
-		if (openCOVsInfoThread == null) {
-		    openCOVsInfoThread = new Thread(new OpenCOVsInfoThread());
-		    openCOVsInfoThread.start();
-		}
 	}
 
 	@Override
@@ -391,9 +385,6 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	public void disconnect() {
 		removeSubscriptions();
 		LOCAL_DEVICE.getEventHandler().removeListener(this);
-		if (openCOVsInfoThread != null) {
-		    openCOVsInfoThread.interrupt();
-		}
 	}
 	
 	// filters object types that can be read/written by the driver 
@@ -565,25 +556,5 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		ConfirmedRequestService request = new ReadPropertyRequest(REMOTE_DEVICE.getObjectIdentifier(), PropertyIdentifier.systemStatus);
 		LOCAL_DEVICE.send(REMOTE_DEVICE, request);
 		return true;
-	}
-	
-	private class OpenCOVsInfoThread implements Runnable {
-        @Override
-        public void run() {
-            try {
-                while (!Thread.interrupted()) {
-                    Thread.sleep(60*60*1000);
-                    final String objectIds;
-                    final int size;
-                    synchronized (openCOVNotifications) {
-                        objectIds = openCOVNotifications.stream().map(ObjectIdentifier::toString).collect(Collectors.joining(","));
-                        size = openCOVNotifications.size();
-                    }
-                    logger.info("there are {} open COV subscriptions without notification: {}", size, objectIds);
-                }
-            }
-            catch (InterruptedException e) {
-            }
-        }
 	}
 }
