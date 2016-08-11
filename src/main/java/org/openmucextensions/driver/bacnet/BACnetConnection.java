@@ -118,19 +118,28 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 		LOCAL_DEVICE = localDevice;
 		REMOTE_DEVICE = remoteDevice;
 		
-		// accepted object types (only this object types will be provided as channel to the OpenMUC framework)
-		// the related ObjectTypeInfo class specifies the OpenMUC behavior
-		acceptedTypes = new HashMap<ObjectType, ObjectTypeInfo>();
-		// analog objects are of type REAL in BACnet (32 bit, float)
-		acceptedTypes.put(ObjectType.analogInput, new ObjectTypeInfo(ValueType.FLOAT, null, Boolean.TRUE, Boolean.FALSE));
-		acceptedTypes.put(ObjectType.analogOutput, new ObjectTypeInfo(ValueType.FLOAT, null, Boolean.TRUE, Boolean.TRUE));
-		acceptedTypes.put(ObjectType.analogValue, new ObjectTypeInfo(ValueType.FLOAT, null, Boolean.TRUE, Boolean.TRUE));
-		acceptedTypes.put(ObjectType.binaryInput, new ObjectTypeInfo(ValueType.BOOLEAN, null, Boolean.TRUE, Boolean.FALSE));
-		acceptedTypes.put(ObjectType.binaryOutput, new ObjectTypeInfo(ValueType.BOOLEAN, null, Boolean.TRUE, Boolean.TRUE));
-		acceptedTypes.put(ObjectType.binaryValue, new ObjectTypeInfo(ValueType.BOOLEAN, null, Boolean.TRUE, Boolean.TRUE));
-		acceptedTypes.put(ObjectType.multiStateInput, new ObjectTypeInfo(ValueType.INTEGER, null, Boolean.TRUE, Boolean.FALSE));
-		acceptedTypes.put(ObjectType.multiStateOutput, new ObjectTypeInfo(ValueType.INTEGER, null, Boolean.TRUE, Boolean.TRUE));
-		acceptedTypes.put(ObjectType.multiStateValue, new ObjectTypeInfo(ValueType.INTEGER, null, Boolean.TRUE, Boolean.TRUE));
+		 // accepted object types (only this object types will be provided as channel to the OpenMUC framework)
+        // the related ObjectTypeInfo class specifies the OpenMUC behavior
+        acceptedTypes = new HashMap<ObjectType, ObjectTypeInfo>();
+        // analog objects are of type REAL in BACnet (32 bit, float)
+        acceptedTypes.put(ObjectType.analogInput,
+                new ObjectTypeInfo(ValueType.FLOAT, null, Boolean.TRUE, Boolean.FALSE, ObjectType.analogInput));
+        acceptedTypes.put(ObjectType.analogOutput,
+                new ObjectTypeInfo(ValueType.FLOAT, null, Boolean.TRUE, Boolean.TRUE, ObjectType.analogOutput));
+        acceptedTypes.put(ObjectType.analogValue,
+                new ObjectTypeInfo(ValueType.FLOAT, null, Boolean.TRUE, Boolean.TRUE, ObjectType.analogValue));
+        acceptedTypes.put(ObjectType.binaryInput,
+                new ObjectTypeInfo(ValueType.BOOLEAN, null, Boolean.TRUE, Boolean.FALSE, ObjectType.binaryInput));
+        acceptedTypes.put(ObjectType.binaryOutput,
+                new ObjectTypeInfo(ValueType.BOOLEAN, null, Boolean.TRUE, Boolean.TRUE, ObjectType.binaryOutput));
+        acceptedTypes.put(ObjectType.binaryValue,
+                new ObjectTypeInfo(ValueType.BOOLEAN, null, Boolean.TRUE, Boolean.TRUE, ObjectType.binaryValue));
+        acceptedTypes.put(ObjectType.multiStateInput,
+                new ObjectTypeInfo(ValueType.INTEGER, null, Boolean.TRUE, Boolean.FALSE, ObjectType.multiStateInput));
+        acceptedTypes.put(ObjectType.multiStateOutput,
+                new ObjectTypeInfo(ValueType.INTEGER, null, Boolean.TRUE, Boolean.TRUE, ObjectType.multiStateOutput));
+        acceptedTypes.put(ObjectType.multiStateValue,
+                new ObjectTypeInfo(ValueType.INTEGER, null, Boolean.TRUE, Boolean.TRUE, ObjectType.multiStateValue));
 	
 		LOCAL_DEVICE.getEventHandler().addListener(this);
 	}
