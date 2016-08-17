@@ -1,7 +1,6 @@
 buildscript {
   repositories {
       mavenCentral()
-//      maven { url this.properties['internalArtifactory.mavenCentral'] }
   }
   dependencies {
       classpath 'net.researchgate:gradle-release:2.1.1'
@@ -34,9 +33,6 @@ repositories {
     name 'additionalLibraries'
     dirs rootDir.getAbsolutePath() + '/lib'
   }
-  
-//  maven { url this.properties['internalArtifactory.thirdparty'] }
-//  maven { url this.properties['internalArtifactory.mavenCentral'] }
 }
 
 configurations.create('embed')
@@ -68,7 +64,6 @@ jar {
     }
     instruction 'Export-Package', ''
     instruction 'Import-Package', '!com.serotonin*'
-    instruction 'Import-Package', '!org.apache.commons*'
     instruction 'Import-Package', '!com.google.common*'
     instruction 'Import-Package', '*'
     instruction 'Service-Component', 'OSGI-INF/components.xml'
