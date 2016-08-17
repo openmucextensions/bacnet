@@ -52,6 +52,9 @@ The driver is configurable via the `channels.xml` file. An example snippet for B
                 <channelAddress>L'Bool1</channelAddress>
                 <unit>binaryValue;noUnits</unit>
             </channel>
+            <channel id="BoolWert1_OOS">
+                <channelAddress>L'Bool1#outOfService</channelAddress>
+            </channel>
         </device>
      </driver>
 ``` 

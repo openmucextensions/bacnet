@@ -11,8 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.serotonin.bacnet4j.obj.BACnetObjectListener;
+import com.serotonin.bacnet4j.obj.PropertyTypeDefinition;
 import com.serotonin.bacnet4j.type.Encodable;
-import com.serotonin.bacnet4j.type.enumerated.ObjectType;
 import com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier;
 
 /**
@@ -25,24 +25,23 @@ public class BACnetObjectChangeListener implements BACnetObjectListener {
     private final static Logger logger = LoggerFactory.getLogger(BACnetObjectChangeListener.class);
     private final RecordsReceivedListener listener;
     private final ChannelRecordContainer channelRecordContainer;
-    private final ObjectType objectType;
+    private final PropertyTypeDefinition propertyDefinition;
     
-    public BACnetObjectChangeListener(RecordsReceivedListener listener, ChannelRecordContainer channelRecordContainer, ObjectType objectType) {
+    public BACnetObjectChangeListener(RecordsReceivedListener listener, ChannelRecordContainer channelRecordContainer, PropertyTypeDefinition propertyDefinition) {
         this.listener = listener;
         this.channelRecordContainer = channelRecordContainer;
-        this.objectType = objectType;
+        this.propertyDefinition = propertyDefinition;
     }
 
     @Override
     public void propertyChange(PropertyIdentifier pid, Encodable oldValue, Encodable newValue) {
-        if (!pid.equals(PropertyIdentifier.presentValue)) {
-            // currently not implemented
-            logger.info("Channel {}/{}: propertyChange notification of {} not implemented yet", channelRecordContainer.getChannel().getId(), channelRecordContainer.getChannelAddress(), pid);
+        if (!pid.equals(propertyDefinition.getPropertyIdentifier())) {
+            // not for us...
             return;
         }
         logger.debug("Channel {}/{}: propertyChange notification of {} from value {} to {}", channelRecordContainer.getChannel().getId(), channelRecordContainer.getChannelAddress(),
                 pid, oldValue, newValue);
-        final Record record = new Record(ConversionUtil.convertValue(newValue, objectType), 
+        final Record record = new Record(ConversionUtil.convertValue(newValue, propertyDefinition), 
                 new Long(System.currentTimeMillis()), Flag.VALID);
 
         channelRecordContainer.setRecord(record);

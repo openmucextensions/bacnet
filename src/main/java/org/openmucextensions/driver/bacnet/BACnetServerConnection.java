@@ -2,6 +2,7 @@ package org.openmucextensions.driver.bacnet;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -14,26 +15,25 @@ import org.openmuc.framework.config.DeviceConfig;
 import org.openmuc.framework.config.ScanException;
 import org.openmuc.framework.data.Flag;
 import org.openmuc.framework.data.Record;
-import org.openmuc.framework.data.Value;
 import org.openmuc.framework.data.ValueType;
 import org.openmuc.framework.driver.spi.ChannelRecordContainer;
 import org.openmuc.framework.driver.spi.ChannelValueContainer;
 import org.openmuc.framework.driver.spi.Connection;
 import org.openmuc.framework.driver.spi.ConnectionException;
 import org.openmuc.framework.driver.spi.RecordsReceivedListener;
+import org.openmucextensions.driver.bacnet.BACnetUtils.ObjectPropertyIdentification;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.serotonin.bacnet4j.LocalDevice;
-import com.serotonin.bacnet4j.exception.BACnetRuntimeException;
 import com.serotonin.bacnet4j.exception.BACnetServiceException;
 import com.serotonin.bacnet4j.obj.BACnetObject;
-import com.serotonin.bacnet4j.obj.BACnetObjectListener;
-import com.serotonin.bacnet4j.type.Encodable;
+import com.serotonin.bacnet4j.obj.ObjectProperties;
+import com.serotonin.bacnet4j.obj.PropertyTypeDefinition;
 import com.serotonin.bacnet4j.type.enumerated.EngineeringUnits;
-import com.serotonin.bacnet4j.type.enumerated.ErrorCode;
 import com.serotonin.bacnet4j.type.enumerated.ObjectType;
 import com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier;
+import com.serotonin.bacnet4j.type.primitive.CharacterString;
 import com.serotonin.bacnet4j.type.primitive.ObjectIdentifier;
 
 /**
@@ -77,22 +77,13 @@ public class BACnetServerConnection implements Connection {
                 channelRecordContainer.setRecord(r);
                 continue;
             }
-            final BACnetObject channelHandle = getChannelHandle(channelRecordContainer.getChannelHandle(), channelRecordContainer.getChannelAddress());
+            final BACnetChannelHandle channelHandle = getChannelHandle(channelRecordContainer.getChannelHandle(), channelRecordContainer.getChannelAddress());
             if (channelHandle == null) {
                 channelRecordContainer.setRecord(new Record(Flag.DRIVER_ERROR_CHANNEL_WITH_THIS_ADDRESS_NOT_FOUND));
                 continue;
             }
             channelRecordContainer.setChannelHandle(channelHandle);
-            // get initial value and notify listeners
-            try {
-                final Value value = ConversionUtil.convertValue((Encodable)channelHandle.getProperty(PropertyIdentifier.presentValue), getObjectTypeOfBACnetObject(channelHandle));
-                channelRecordContainer.setRecord(new Record(value, System.currentTimeMillis(), Flag.VALID));
-                continue;
-            }
-            catch (BACnetServiceException e) {
-                channelRecordContainer.setRecord(new Record(Flag.DRIVER_ERROR_READ_FAILURE));
-                continue;
-            }
+            channelHandle.read(channelRecordContainer);
         }
         return null;
     }
@@ -108,25 +99,13 @@ public class BACnetServerConnection implements Connection {
                 channelRecordContainer.setRecord(r);
                 continue;
             }
-            final BACnetObject channelHandle = getChannelHandle(channelRecordContainer.getChannelHandle(), channelRecordContainer.getChannelAddress());
+            final BACnetChannelHandle channelHandle = getChannelHandle(channelRecordContainer.getChannelHandle(), channelRecordContainer.getChannelAddress());
             if (channelHandle == null) {
                 channelRecordContainer.setRecord(new Record(Flag.DRIVER_ERROR_CHANNEL_WITH_THIS_ADDRESS_NOT_FOUND));
                 continue;
             }
             channelRecordContainer.setChannelHandle(channelHandle);
-            // create and register listener
-            final ObjectType objectType = getObjectTypeOfBACnetObject(channelHandle);
-            final BACnetObjectListener objectListener = new BACnetObjectChangeListener(listener, channelRecordContainer, objectType);
-            channelHandle.addListener(objectListener);
-            // get initial value and notify listeners
-            final Encodable initValue;
-            try {
-                initValue = channelHandle.getProperty(PropertyIdentifier.presentValue);
-            }
-            catch (BACnetServiceException e) {
-                throw new ConnectionException("cannot obtain initial value of internal BACnet object", e);
-            }
-            objectListener.propertyChange(PropertyIdentifier.presentValue, null, initValue);
+            channelHandle.startListening(channelRecordContainer, listener);
         }
     }
     
@@ -149,11 +128,71 @@ public class BACnetServerConnection implements Connection {
      */
     private void initByDeviceConfig(DeviceConfig deviceConfig) throws ConnectionException {
         Objects.requireNonNull(deviceConfig, "deviceConfig must not be null");
-        for (ChannelConfig channel : deviceConfig.getChannels()) {
-            createBacnetObject(channel);
+        List<ChannelConfig> orderedChannels = 
+                deviceConfig.getChannels().stream().sorted(new ConfigComparator()).collect(Collectors.toList());
+        for (ChannelConfig channel : orderedChannels) {
+            initChannel(channel);
         }
     }
 
+    /**
+     * Compare {@link ChannelConfig}s and order by name and then (if name equal) by {@link PropertyIdentifier}
+     * (see {@link PropertyIdentifierComparator})
+     */
+    private static class ConfigComparator implements Comparator<ChannelConfig> {
+        final static Comparator<PropertyIdentifier> propIdComparator = new PropertyIdentifierComparator();
+        @Override
+        public int compare(ChannelConfig o1, ChannelConfig o2) {
+            final Comparator<ObjectPropertyIdentification> comparator = 
+                    Comparator.nullsLast(
+                    Comparator.comparing(ObjectPropertyIdentification::getObjectName)
+                              .thenComparing(Comparator.comparing(ObjectPropertyIdentification::getProperty, propIdComparator)));
+            final ObjectPropertyIdentification o1NameAndPropertyType = BACnetUtils.getNameAndPropertyType(o1.getChannelAddress());
+            final ObjectPropertyIdentification o2NameAndPropertyType = BACnetUtils.getNameAndPropertyType(o2.getChannelAddress());
+            return comparator.compare(o1NameAndPropertyType, o2NameAndPropertyType);
+        }
+    }
+
+    /**
+     * Comparator for {@link PropertyIdentifier}s which orders by the int-value of the {@link PropertyIdentifier}-enumeration, but
+     * prioritizes the {@link PropertyIdentifier#presentValue} (which gets the "lowest score").
+     */
+    private static class PropertyIdentifierComparator implements Comparator<PropertyIdentifier> {
+        @Override
+        public int compare(PropertyIdentifier o1, PropertyIdentifier o2) {
+            final int order1 = (PropertyIdentifier.presentValue.equals(o1)) ? -1 : o1.intValue();
+            final int order2 = (PropertyIdentifier.presentValue.equals(o2)) ? -1 : o2.intValue();
+            return Comparator.<Integer>naturalOrder().compare(Integer.valueOf(order1), Integer.valueOf(order2));
+        }
+    }
+
+    private void initChannel(ChannelConfig config) throws ConnectionException {
+        final String channelId = config.getId();
+        final String channelAddress = config.getChannelAddress();
+        final ObjectPropertyIdentification nameAndType = BACnetUtils.getNameAndPropertyType(channelAddress);
+        if (nameAndType == null) {
+            logger.error("invalid configuration: channelAddress not correct for channel with id {}", channelId);
+            channelAddressesWithInvalidConfiguration.add(channelAddress);
+            return;
+        }
+        if (nameAndType.getProperty().equals(PropertyIdentifier.presentValue))
+            createBacnetObject(config);
+        else {
+            // check if there already exists a BACnet object for this configuration
+            final BACnetObject bacnetObject = localDevice.getObject(nameAndType.getObjectName());
+            if (bacnetObject == null) {
+                logger.error("invalid configuration: missing configuration for presentValue prior to channel with id {}", channelId);
+                channelAddressesWithInvalidConfiguration.add(channelAddress);
+                return;
+            }
+            // configuration ok
+            channelAddressesWithInvalidConfiguration.remove(channelAddress);
+            logger.debug("additional channel for existing BACnet object {} (with instance number {}) for property {}", bacnetObject.getObjectName(), bacnetObject.getInstanceId(), nameAndType.getProperty());
+            // nothing else to do here
+            return;
+        }
+    }
+    
     /**
      * Create a BACnet object using the information of the {@link ChannelConfig} and add it to the local device.
      * @param config the channel configuration
@@ -211,7 +250,7 @@ public class BACnetServerConnection implements Connection {
         // configuration ok
         channelAddressesWithInvalidConfiguration.remove(channelAddress);
         
-        boolean createSuccess = createBacnetObject(objectType, objectName, engUnit);
+        boolean createSuccess = createBacnetObject(objectType, objectName, engUnit, config);
         if (!createSuccess) {
             channelAddressesWithInvalidConfiguration.add(channelAddress);
         }
@@ -221,15 +260,17 @@ public class BACnetServerConnection implements Connection {
      * Create a BACnet object and add it to the local device.
      * @param type
      * @param objectName
+     * @param config 
      * @throws ConnectionException
      */
-    private boolean createBacnetObject(ObjectType type, String objectName, EngineeringUnits unit) throws ConnectionException {
-        int instanceNumber = localDevice.getNextInstanceObjectNumber(type);
+    private boolean createBacnetObject(ObjectType type, String objectName, EngineeringUnits unit, ChannelConfig config) throws ConnectionException {
+        final int instanceNumber = localDevice.getNextInstanceObjectNumber(type);
         logger.debug("creating new local BACnet object {} with type {} (and instance number {})", objectName, type, instanceNumber);
         
         // TODO should we read the initial value from configuration?
         final String initialValue;
-        final ValueType valueType = ConversionUtil.getValueTypeForObjectType(type);
+        final PropertyTypeDefinition presValTypeDef = ObjectProperties.getPropertyTypeDefinition(type, PropertyIdentifier.presentValue);
+        final ValueType valueType = ConversionUtil.getValueTypeMapping(presValTypeDef.getClazz());
         if (valueType == null) {
             logger.error("cannot create BACnet object for type {}", type);
             return false;
@@ -248,6 +289,7 @@ public class BACnetServerConnection implements Connection {
         
         try {
             final BACnetObject object = ConversionUtil.createBACnetObject(type, instanceNumber, objectName, initialValue, unit);
+            object.writeProperty(PropertyIdentifier.description, new CharacterString(config.getDescription()));
             localDevice.addObject(object);
             createdObjectIds.add(object.getId());
             logger.debug("local BACnet object {} created", objectName);
@@ -267,42 +309,26 @@ public class BACnetServerConnection implements Connection {
                 channelValueContainer.setFlag(Flag.DRIVER_ERROR_CHANNEL_ADDRESS_SYNTAX_INVALID);
                 continue;
             }
-            final BACnetObject channelHandle = getChannelHandle(channelValueContainer.getChannelHandle(), channelValueContainer.getChannelAddress());
+            final BACnetChannelHandle channelHandle = getChannelHandle(channelValueContainer.getChannelHandle(), channelValueContainer.getChannelAddress());
             if (channelHandle == null) {
                 channelValueContainer.setFlag(Flag.DRIVER_ERROR_CHANNEL_WITH_THIS_ADDRESS_NOT_FOUND);
                 continue;
             }
             channelValueContainer.setChannelHandle(channelHandle);
-            // convert and write value
-            final ObjectType objectType = getObjectTypeOfBACnetObject(channelHandle);
-            final Encodable value = ConversionUtil.convertValue(channelValueContainer.getValue(), objectType);
-            if(value == null) {
-                // tried to write a not supported object type
-                logger.error("cannot write value of type " + objectType);
-                channelValueContainer.setFlag(Flag.DRIVER_ERROR_CHANNEL_VALUE_TYPE_CONVERSION_EXCEPTION);
-                return null;
-            }
-            try {
-                channelHandle.writeProperty(PropertyIdentifier.presentValue, value);
-            }
-            catch (BACnetRuntimeException ex) {
-                BACnetServiceException serviceException = (BACnetServiceException) ex.getCause();
-                if (ErrorCode.writeAccessDenied.equals(serviceException.getErrorCode())) {
-                    channelValueContainer.setFlag(Flag.ACCESS_METHOD_NOT_SUPPORTED);
-                    return null;
-                }
-                channelValueContainer.setFlag(Flag.UNKNOWN_ERROR);
-            }
-            channelValueContainer.setFlag(Flag.VALID);
+            channelHandle.write(channelValueContainer);
         }
         return null;
     }
     
-    private BACnetObject getChannelHandle(Object origChannelHandle, String channelAddress) {
+    private BACnetChannelHandle getChannelHandle(Object origChannelHandle, String channelAddress) {
         if(origChannelHandle != null) {
-            return (BACnetObject) origChannelHandle;
+            return (BACnetChannelHandle) origChannelHandle;
         } else {
-            return findLocalObjectByName(channelAddress);
+            final ObjectPropertyIdentification nameAndPropertyType = BACnetUtils.getNameAndPropertyType(channelAddress);
+            final BACnetObject bacnetObj = findLocalObjectByName(nameAndPropertyType.getObjectName());
+            if (bacnetObj == null)
+                return null;
+            return new BACnetChannelHandle(bacnetObj, nameAndPropertyType.getProperty());
         }
     }
 

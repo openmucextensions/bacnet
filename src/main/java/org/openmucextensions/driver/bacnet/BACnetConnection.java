@@ -46,6 +46,8 @@ import com.serotonin.bacnet4j.event.DeviceEventListener;
 import com.serotonin.bacnet4j.exception.BACnetException;
 import com.serotonin.bacnet4j.exception.PropertyValueException;
 import com.serotonin.bacnet4j.obj.BACnetObject;
+import com.serotonin.bacnet4j.obj.ObjectProperties;
+import com.serotonin.bacnet4j.obj.PropertyTypeDefinition;
 import com.serotonin.bacnet4j.service.acknowledgement.ReadPropertyMultipleAck;
 import com.serotonin.bacnet4j.service.confirmed.ConfirmedRequestService;
 import com.serotonin.bacnet4j.service.confirmed.ReadPropertyMultipleRequest;
@@ -253,7 +255,8 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 				                propertyValue.getClass().getName(), 
 				                propertyValue.toString());
 				    }
-					final Value value = ConversionUtil.convertValue(propertyValue, objectIdentifier.getObjectType());
+				    final PropertyTypeDefinition propertyTypeDefinition = ObjectProperties.getPropertyTypeDefinition(objectIdentifier.getObjectType(), PropertyIdentifier.presentValue);
+					final Value value = ConversionUtil.convertValue(propertyValue, propertyTypeDefinition);
 					channelRecordContainer.setRecord(new Record(value, timestamp, Flag.VALID));
 				} catch (PropertyValueException e) {
 				    logger.warn(String.format("error while reading property of channel %s", channelRecordContainer.getChannel().getId()), e);
@@ -361,7 +364,8 @@ public class BACnetConnection implements Connection, DeviceEventListener {
             }
 			
 			if(objectIdentifier != null) {
-				Encodable value = ConversionUtil.convertValue(channelValueContainer.getValue(), objectIdentifier.getObjectType());
+                final PropertyTypeDefinition propertyTypeDefinition = ObjectProperties.getPropertyTypeDefinition(objectIdentifier.getObjectType(), PropertyIdentifier.presentValue);
+				Encodable value = ConversionUtil.convertValue(channelValueContainer.getValue(), propertyTypeDefinition);
 				
 				if(value != null) {
 					UnsignedInteger priority = (writePriority == null) ? null : new UnsignedInteger(writePriority.intValue());
@@ -497,14 +501,16 @@ public class BACnetConnection implements Connection, DeviceEventListener {
                 }
 			}
 			else {
+                final PropertyValue newPropertyValue = listOfValues.get(1);
                 if (logger.isTraceEnabled()) {
                     logger.trace("received (listener) new value for channel {} is type {} with value {}", 
                             container.getChannel().getId(), 
-                            listOfValues.get(1).getValue().getClass().getName(), 
-                            listOfValues.get(1).getValue().toString());
+                            newPropertyValue.getValue().getClass().getName(), 
+                            newPropertyValue.getValue().toString());
                 }
 
-				Record record = new Record(ConversionUtil.convertValue(listOfValues.get(1).getValue(), monitoredObjectIdentifier.getObjectType()), 
+                final PropertyTypeDefinition propertyTypeDefinition = ObjectProperties.getPropertyTypeDefinition(monitoredObjectIdentifier.getObjectType(), newPropertyValue.getPropertyIdentifier());
+				Record record = new Record(ConversionUtil.convertValue(newPropertyValue.getValue(), propertyTypeDefinition), 
 						new Long(System.currentTimeMillis()), Flag.VALID);
 
 				container.setRecord(record);
