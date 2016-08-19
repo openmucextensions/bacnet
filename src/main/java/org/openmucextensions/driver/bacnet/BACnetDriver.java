@@ -310,14 +310,18 @@ public class BACnetDriver implements DriverService {
 		 
         for (RemoteDevice device : localDevice.getRemoteDevices()) {
 
-            InetAddress hostIp = IpNetworkUtils.getInetAddress(device.getAddress().getMacAddress());
+            InetAddress hostIp = null;
+            try {
+                hostIp = IpNetworkUtils.getInetAddress(device.getAddress().getMacAddress());
+            }
+            catch (IllegalArgumentException e) { /* remote device not identified by IP-address? */ }
 
         	if(deviceScanInterrupted) throw new ScanInterruptedException();
         	
         	try {
 				DiscoveryUtils.getExtendedDeviceInformation(localDevice, device);
 			} catch (BACnetException e) {
-			    logger.warn("error while reading extended device information from device {};{}", device.getInstanceNumber(), hostIp.getHostAddress());
+                logger.warn("error while reading extended device information from device {};{}", device.getInstanceNumber(), (hostIp == null) ? "no ip" : hostIp.getHostAddress());
 			}
 			remoteDevices.put(device.getInstanceNumber(), device);
 			
@@ -325,7 +329,10 @@ public class BACnetDriver implements DriverService {
 				final Settings scanSettings = new Settings();
 				if (broadcastIP != null)
 					scanSettings.put(SETTING_BROADCAST_IP, broadcastIP);
-				String deviceAddress = Integer.toString(device.getInstanceNumber()) + ';' + hostIp.getHostAddress();
+                String deviceAddress = Integer.toString(device.getInstanceNumber());
+                if (hostIp != null) {
+                    deviceAddress += ';' + hostIp.getHostAddress();
+                }
 				scanSettings.put(SETTING_REMOTE_PORT, scanPort.toString());
 				listener.deviceFound(new DeviceScanInfo(deviceAddress, scanSettings.toSettingsString(), device.getName()));
 			}
