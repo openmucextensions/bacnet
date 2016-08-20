@@ -22,12 +22,20 @@ public class Settings extends HashMap<String, String> {
 
 	private static final long serialVersionUID = -1827619677454357491L;
 
+	public static final String VALID_SETTINGS_STRING_REGEX = "^(?:\\s*((?:[^=;\\s]+\\s+)*[^=;\\s]+)\\s*=\\s*((?:[^=;\\s]+\\s+)*[^=;\\s]+)\\s*(?:;(?!\\s*$)|$))+$";
+	
 	public Settings() {
 		super();
 	}
 	
 	public Settings(String settingsString) {
+		
 		super();
+		
+		if(!settingsString.isEmpty() && !settingsString.matches(VALID_SETTINGS_STRING_REGEX)) {
+			throw new IllegalArgumentException("Settings string is not valid");
+		}
+		
 		parseSettingsString(settingsString);
 	}
 	

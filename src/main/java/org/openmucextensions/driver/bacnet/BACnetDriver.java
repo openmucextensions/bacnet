@@ -1,5 +1,5 @@
 /*  OpenMUC BACnet driver service
- *  Copyright (C) 2015 Mike Pichler
+ *  Copyright (C) 2016
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -74,7 +74,7 @@ public class BACnetDriver implements DriverService {
 	/** Setting-name for the flag whether this device is a BACnet server */
 	private final static String SETTING_ISSERVER = "isServer";
 
-	private final static long defaultDiscoverySleepTime = 2*1000;
+	private final static long defaultDiscoverySleepTime = 2000;
     private ConfigService configService;
 	
 	private final LocalDeviceCache localDevicesCache = new LocalDeviceCache();
@@ -89,11 +89,11 @@ public class BACnetDriver implements DriverService {
 			// description
 			"BACnet/IP communication protocol driver",
 			// device address
-			"BACnet device instance number is used as device address",
+			"BACnet device instance number is used as device address, optional host IP address e.g.: <instance_number>[;<host_ip>]",
 			// settings
 			"No settings possible",
 			// channel address
-			"BACnet device instance number is used as device address, optional host IP address e.g.: <instance_number>[;<host_ip>]",
+			"The technical designation is used as channel address",
 			// device scan parameters
 			"No settings possible");
 	
@@ -137,33 +137,50 @@ public class BACnetDriver implements DriverService {
 		
 		deviceScanInterrupted = false;
 		
-		Settings settings = new Settings(settingsString);
-
+		// parse setting string
+		Settings settings = null;
+		if(!(settingsString==null) && !settingsString.isEmpty()) {
+			if(!settingsString.matches(Settings.VALID_SETTINGS_STRING_REGEX)) throw new ArgumentSyntaxException("Settings string is not valid: " + settingsString);
+			// settings string valid
+			settings = new Settings(settingsString);
+		} else {
+			// create empty setting instance
+			settings = new Settings();
+		}
+		
+		// get discoverySleepTime
 		long discoverySleepTime;
 		if (settings.containsKey(SETTING_SCAN_DISCOVERYSLEEPTIME)) {
 			final String discoverySleepTimeSetting = settings.get(SETTING_SCAN_DISCOVERYSLEEPTIME);
 			try {
 				discoverySleepTime = Long.parseLong(discoverySleepTimeSetting);
-			}
-			catch (NumberFormatException nfe) {
-				logger.info("invalid parameter discoverySleepTime " + SETTING_SCAN_DISCOVERYSLEEPTIME + "; using default value");
+			} catch (NumberFormatException nfe) {
+				logger.warn("invalid parameter discoverySleepTime " + SETTING_SCAN_DISCOVERYSLEEPTIME + ", using default value " + defaultDiscoverySleepTime);
 				discoverySleepTime = defaultDiscoverySleepTime;
 			}
-		}
-		else
+		} else {
 			discoverySleepTime = defaultDiscoverySleepTime;
+		}
 		
-		if(!settings.containsKey(SETTING_SCAN_PORT)) {
+		// get broadcastIp
+		String broadcastIP = null;
+		if(settings.containsKey(SETTING_BROADCAST_IP)) {
+			broadcastIP = settings.get(SETTING_BROADCAST_IP);
+		} else {
+			broadcastIP = IpNetwork.DEFAULT_BROADCAST_IP;
+		}
+				
+		if(settings.containsKey(SETTING_SCAN_PORT)) {
+			Integer scanPort = parsePort(settings.get(SETTING_SCAN_PORT));				
+			scanAtPort(broadcastIP, scanPort, listener, discoverySleepTime);
+		} else {
 			int progress = 0;
 			for(int scanPort=0xBAC0; scanPort<=0xBACF; scanPort++) {
-				scanAtPort(settings.get(SETTING_BROADCAST_IP), scanPort, listener, discoverySleepTime);
+				scanAtPort(broadcastIP, scanPort, listener, discoverySleepTime);
 				progress += 6; // add 6% progress per port
 				if(listener!=null) listener.scanProgressUpdate(progress);
 				if(deviceScanInterrupted) return;
 			}
-		} else {
-			Integer scanPort = (settings.containsKey(SETTING_SCAN_PORT)) ? parsePort(settings.get(SETTING_SCAN_PORT)) : IpNetwork.DEFAULT_PORT;				
-			scanAtPort(settings.get(SETTING_BROADCAST_IP), scanPort, listener, discoverySleepTime);
 		}
 	}
 
