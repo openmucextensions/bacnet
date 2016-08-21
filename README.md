@@ -3,7 +3,7 @@ OpenMUC BACnet/IP communication driver based on bacnet4J. The project is license
 
 This project contains a communication driver for Fraunhofer's OpenMUC framework (see www.openmuc.org) that allows to communicate with BACnet communication networks. BACnet is a communication protocol mainly used in the building automation domain, specified by the American Society of Heating, Refrigerating and Air-Conditioning Engineers (ASHRAE), see www.bacnet.org for details.
 
-The driver is based on (uses internally) the bacnet4J library version 1.3, which is hosted at http://sourceforge.net/projects/bacnet4j/. The wiki of this projects contains some examples for using the bacnet4J library.
+The driver is based on (uses internally) the bacnet4J library version 1.3, which is hosted at http://sourceforge.net/projects/bacnet4j/. The [wiki of this project](https://github.com/openmucextensions/bacnet/wiki) contains some examples for using the bacnet4J library.
 
 ## Features
 * Automated selection of IP network port
@@ -30,7 +30,7 @@ For further information see the project's [wiki](https://github.com/openmucexten
 
 ## Example configuration
 
-The driver is configurable via the `channels.xml` file. An example snippet for BACnet object server is shown here and explained in detail in the wiki.
+The driver is configurable via the `channels.xml` file. An example snippet for BACnet object server is shown here and explained in detail in the [wiki](https://github.com/openmucextensions/bacnet/wiki).
 
 ```xml
     <driver id="bacnet">
