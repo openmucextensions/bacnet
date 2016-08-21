@@ -69,10 +69,10 @@ public class BACnetDriver implements DriverService {
 	private final static String SETTING_LOCAL_DVC_INSTANCENUMBER = "localInstanceNumber";
 	/** Setting-name for the UDP port of the remote device */
 	private final static String SETTING_REMOTE_PORT = "remoteDevicePort";
-	/** Setting-name for the IP host address */
-	private final static String SETTING_HOST_IP = "hostIp";
 	/** Setting-name for the flag whether this device is a BACnet server */
 	private final static String SETTING_ISSERVER = "isServer";
+	/** Setting-name for BACnet write priority */
+	private final static String SETTING_WRITE_PRIORITY = "writePriority";
 
 	private final static long defaultDiscoverySleepTime = 2000;
     private ConfigService configService;
@@ -137,16 +137,7 @@ public class BACnetDriver implements DriverService {
 		
 		deviceScanInterrupted = false;
 		
-		// parse setting string
-		Settings settings = null;
-		if(!(settingsString==null) && !settingsString.isEmpty()) {
-			if(!settingsString.matches(Settings.VALID_SETTINGS_STRING_REGEX)) throw new ArgumentSyntaxException("Settings string is not valid: " + settingsString);
-			// settings string valid
-			settings = new Settings(settingsString);
-		} else {
-			// create empty setting instance
-			settings = new Settings();
-		}
+		Settings settings = parseSettingsString(settingsString);
 		
 		// get discoverySleepTime
 		long discoverySleepTime;
@@ -197,7 +188,7 @@ public class BACnetDriver implements DriverService {
 	    String hostIp = d.hostIp();
 	    Integer remoteInstance = d.remoteInstance();
 		
-		Settings settings = new Settings(settingsString);
+	    Settings settings = parseSettingsString(settingsString);
 		
 		LocalDevice localDevice = null;
 		boolean isServer;
@@ -273,13 +264,30 @@ public class BACnetDriver implements DriverService {
 		
 			BACnetConnection connection = new BACnetConnection(localDevice, remoteDevice);
 			
-			Integer writePriority = (settings.containsKey("writePriority")) ? parseWritePriority(settings.get("writePriority")) : null;
+			Integer writePriority = (settings.containsKey(SETTING_WRITE_PRIORITY)) ? parseWritePriority(settings.get(SETTING_WRITE_PRIORITY)) : null;
 			connection.setWritePriority(writePriority);
 			
 			return connection;
 		}
 	}
 
+	private Settings parseSettingsString(final String settingsString) throws ArgumentSyntaxException {
+		
+		// parse setting string
+		Settings settings = null;
+		if(!(settingsString==null) && !settingsString.isEmpty()) {
+			if(!settingsString.matches(Settings.VALID_SETTINGS_STRING_REGEX)) throw new ArgumentSyntaxException("Settings string is not valid: " + settingsString);
+				// settings string valid
+				settings = new Settings(settingsString);
+		} else {
+			// create empty setting instance
+			settings = new Settings();
+		}
+		
+		return settings;
+	}
+	
+	
 	private void addRemoteDevice(Integer remoteInstance, String hostIp, Settings settings, LocalDevice localDevice)
 	            throws ArgumentSyntaxException, ConnectionException {
 	        int port = parsePort(settings.get(SETTING_REMOTE_PORT));
@@ -403,10 +411,10 @@ public class BACnetDriver implements DriverService {
     }
     
     private class DeviceAddress {
-        private String hostIp;
-        private Integer remoteInstance;
+        private final String hostIp;
+        private final Integer remoteInstance;
     
-        DeviceAddress(String hostIp, Integer remoteInstance) {
+        DeviceAddress(final String hostIp, final Integer remoteInstance) {
             this.hostIp = hostIp;
             this.remoteInstance = remoteInstance;
         }
