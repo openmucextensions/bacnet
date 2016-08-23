@@ -91,11 +91,11 @@ public class BACnetDriver implements DriverService {
 			// device address
 			"BACnet device instance number is used as device address, optional host IP address e.g.: <instance_number>[;<host_ip>]",
 			// settings
-			"No settings possible",
+			"See https://github.com/openmucextensions/bacnet/wiki/Connect-to-a-device#settings",
 			// channel address
 			"The technical designation is used as channel address",
 			// device scan parameters
-			"No settings possible");
+			"See https://github.com/openmucextensions/bacnet/wiki/Scan-for-devices#settings");
 	
 	/**
 	 * The activate method will be called from the OSGi framework on startup of the bundle.
@@ -137,7 +137,8 @@ public class BACnetDriver implements DriverService {
 		
 		deviceScanInterrupted = false;
 		
-		Settings settings = parseSettingsString(settingsString);
+		if(!Settings.isValidSettingsString(settingsString)) throw new ArgumentSyntaxException("Settings string is invalid: " + settingsString);
+		Settings settings = new Settings(settingsString);
 		
 		// get discoverySleepTime
 		long discoverySleepTime;
@@ -188,7 +189,8 @@ public class BACnetDriver implements DriverService {
 	    String hostIp = d.hostIp();
 	    Integer remoteInstance = d.remoteInstance();
 		
-	    Settings settings = parseSettingsString(settingsString);
+	    if(!Settings.isValidSettingsString(settingsString)) throw new ArgumentSyntaxException("Settings string is invalid: " + settingsString);
+		Settings settings = new Settings(settingsString);
 		
 		LocalDevice localDevice = null;
 		boolean isServer;
@@ -213,14 +215,17 @@ public class BACnetDriver implements DriverService {
 		}
 		
 		if (isServer) {
-		    final DriverConfig driverConfig = configService.getConfig().getDriver(driverInfo.getId());
+		    
+			// get configuration for this driver from OpenMUC config service
+			final DriverConfig driverConfig = configService.getConfig().getDriver(driverInfo.getId());
 		    
 		    // try to find the device-configuration by address and settings-string
 		    final Optional<DeviceConfig> deviceConfig = driverConfig.getDevices().stream()
 		        .filter(dc -> deviceAddress.equals(dc.getDeviceAddress()) && settingsString.equals(dc.getSettings()))
 		        .findAny();
             if (!deviceConfig.isPresent()) {
-                throw new InternalError(String.format("cannot find deviceConfig for address {}", deviceAddress));
+                // TODO why throw an internal error here? Better to throw a ConnectionException?
+            	throw new InternalError(String.format("cannot find deviceConfig for address {}", deviceAddress));
             }
 		    
 		    final BACnetServerConnection connection = new BACnetServerConnection(localDevice, deviceConfig.get());
@@ -270,23 +275,6 @@ public class BACnetDriver implements DriverService {
 			return connection;
 		}
 	}
-
-	private Settings parseSettingsString(final String settingsString) throws ArgumentSyntaxException {
-		
-		// parse setting string
-		Settings settings = null;
-		if(!(settingsString==null) && !settingsString.isEmpty()) {
-			if(!settingsString.matches(Settings.VALID_SETTINGS_STRING_REGEX)) throw new ArgumentSyntaxException("Settings string is not valid: " + settingsString);
-				// settings string valid
-				settings = new Settings(settingsString);
-		} else {
-			// create empty setting instance
-			settings = new Settings();
-		}
-		
-		return settings;
-	}
-	
 	
 	private void addRemoteDevice(Integer remoteInstance, String hostIp, Settings settings, LocalDevice localDevice)
 	            throws ArgumentSyntaxException, ConnectionException {

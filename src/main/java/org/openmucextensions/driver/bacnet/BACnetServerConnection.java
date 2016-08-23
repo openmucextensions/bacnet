@@ -82,6 +82,10 @@ public class BACnetServerConnection implements Connection {
                 channelRecordContainer.setRecord(new Record(Flag.DRIVER_ERROR_CHANNEL_WITH_THIS_ADDRESS_NOT_FOUND));
                 continue;
             }
+            
+            // TODO discussion about ChannelHandle concept:
+            // in this case, each channel will be read one by one - BACnet multiple read will not be used
+            
             channelRecordContainer.setChannelHandle(channelHandle);
             channelHandle.read(channelRecordContainer);
         }

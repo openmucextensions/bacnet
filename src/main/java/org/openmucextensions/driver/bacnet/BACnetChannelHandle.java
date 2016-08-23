@@ -26,40 +26,40 @@ import com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier;
  */
 public class BACnetChannelHandle {
     private final static Logger logger = LoggerFactory.getLogger(BACnetChannelHandle.class);
-    private final BACnetObject object;
-    private final PropertyIdentifier property;
+    private final BACnetObject bacnetObject;
+    private final PropertyIdentifier propertyIdentifier;
     private PropertyTypeDefinition propTypeDef;
     
     public BACnetChannelHandle(BACnetObject object, PropertyIdentifier property) {
         super();
-        this.object = object;
-        this.property = property;
+        this.bacnetObject = object;
+        this.propertyIdentifier = property;
     }
     
     public BACnetObject getObject() {
-        return object;
+        return bacnetObject;
     }
     public PropertyIdentifier getProperty() {
-        return property;
+        return propertyIdentifier;
     }
     
     private PropertyTypeDefinition getPropertyTypeDefinition() throws BACnetServiceException {
         if (propTypeDef == null) {
-            final ObjectType objType = object.getProperty(PropertyIdentifier.objectType);
-            propTypeDef = ObjectProperties.getPropertyTypeDefinition(objType, property);
+            final ObjectType objType = bacnetObject.getProperty(PropertyIdentifier.objectType);
+            propTypeDef = ObjectProperties.getPropertyTypeDefinition(objType, propertyIdentifier);
         }
         return propTypeDef;
     }
 
     public void read(ChannelRecordContainer channelRecordContainer) {
         try {
-            final Encodable bacnetValue = object.getProperty(property);
+            final Encodable bacnetValue = bacnetObject.getProperty(propertyIdentifier);
             final Value value = ConversionUtil.convertValue(bacnetValue, getPropertyTypeDefinition());
             channelRecordContainer.setRecord(new Record(value, System.currentTimeMillis(), Flag.VALID));
         }
         catch (BACnetServiceException e) {
             channelRecordContainer.setRecord(new Record(Flag.DRIVER_ERROR_READ_FAILURE));
-            logger.debug("cannot read value of property {} of object {}. Message: {}", property, object.getObjectName(), e.getMessage());
+            logger.debug("cannot read value of property {} of object {}. Message: {}", propertyIdentifier, bacnetObject.getObjectName(), e.getMessage());
         }
     }
 
@@ -75,7 +75,7 @@ public class BACnetChannelHandle {
                 channelValueContainer.setFlag(Flag.DRIVER_ERROR_CHANNEL_VALUE_TYPE_CONVERSION_EXCEPTION);
                 return;
             }
-            object.writeProperty(getPropertyTypeDefinition().getPropertyIdentifier(), value);
+            bacnetObject.writeProperty(getPropertyTypeDefinition().getPropertyIdentifier(), value);
         }
         catch (BACnetRuntimeException | BACnetServiceException ex) {
             BACnetServiceException serviceException = (BACnetServiceException) ex.getCause();
@@ -92,14 +92,14 @@ public class BACnetChannelHandle {
         try {
             final PropertyTypeDefinition propTypeDef = getPropertyTypeDefinition();
             final BACnetObjectListener objectListener = new BACnetObjectChangeListener(listener, channelRecordContainer, propTypeDef);
-            object.addListener(objectListener);
+            bacnetObject.addListener(objectListener);
             // get initial value and notify listeners
-            final Encodable initValue = object.getProperty(property);
-            objectListener.propertyChange(property, null, initValue);
+            final Encodable initValue = bacnetObject.getProperty(propertyIdentifier);
+            objectListener.propertyChange(propertyIdentifier, null, initValue);
         }
         catch (BACnetServiceException e) {
             channelRecordContainer.setRecord(new Record(Flag.DRIVER_ERROR_READ_FAILURE));
-            logger.debug("cannot read initial value of property {} of object {}. Message: {}", property, object.getObjectName(), e.getMessage());
+            logger.debug("cannot read initial value of property {} of object {}. Message: {}", propertyIdentifier, bacnetObject.getObjectName(), e.getMessage());
         }
     }
 }

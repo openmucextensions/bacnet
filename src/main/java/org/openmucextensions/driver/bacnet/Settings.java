@@ -32,11 +32,23 @@ public class Settings extends HashMap<String, String> {
 		
 		super();
 		
-		if(!settingsString.isEmpty() && !settingsString.matches(VALID_SETTINGS_STRING_REGEX)) {
+		if(!isValidSettingsString(settingsString)) {
 			throw new IllegalArgumentException("Settings string is not valid");
 		}
 		
 		parseSettingsString(settingsString);
+	}
+	
+	/**
+	 * Returns true, if the specified settings string is valid, empty or <code>null</code>.
+	 * 
+	 * @param settings settings string to validate
+	 * @return true, if the specified settings string is valid, empty or <code>null</code>
+	 */
+	public static boolean isValidSettingsString(final String settings) {
+		if(settings == null) return true;
+		if(settings.isEmpty()) return true;
+		return settings.matches(VALID_SETTINGS_STRING_REGEX);
 	}
 	
 	public void parseSettingsString(String settings) {

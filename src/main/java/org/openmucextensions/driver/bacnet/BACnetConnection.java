@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -51,7 +52,6 @@ import com.serotonin.bacnet4j.obj.PropertyTypeDefinition;
 import com.serotonin.bacnet4j.service.acknowledgement.ReadPropertyMultipleAck;
 import com.serotonin.bacnet4j.service.confirmed.ConfirmedRequestService;
 import com.serotonin.bacnet4j.service.confirmed.ReadPropertyMultipleRequest;
-import com.serotonin.bacnet4j.service.confirmed.ReadPropertyRequest;
 import com.serotonin.bacnet4j.service.confirmed.ReinitializeDeviceRequest.ReinitializedStateOfDevice;
 import com.serotonin.bacnet4j.service.confirmed.SubscribeCOVRequest;
 import com.serotonin.bacnet4j.service.confirmed.WritePropertyRequest;
@@ -76,6 +76,7 @@ import com.serotonin.bacnet4j.type.notificationParameters.NotificationParameters
 import com.serotonin.bacnet4j.type.primitive.CharacterString;
 import com.serotonin.bacnet4j.type.primitive.ObjectIdentifier;
 import com.serotonin.bacnet4j.type.primitive.UnsignedInteger;
+import com.serotonin.bacnet4j.util.DiscoveryUtils;
 import com.serotonin.bacnet4j.util.PropertyReferences;
 import com.serotonin.bacnet4j.util.PropertyValues;
 import com.serotonin.bacnet4j.util.RequestUtils;
@@ -115,6 +116,10 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	 * @param remoteDevice the remote device instance to communicate with
 	 */
 	public BACnetConnection(LocalDevice localDevice, RemoteDevice remoteDevice) {
+		
+		Objects.requireNonNull(localDevice, "local device instance must not be null");
+		Objects.requireNonNull(remoteDevice, "remote device instance must not be null");
+		
 		LOCAL_DEVICE = localDevice;
 		REMOTE_DEVICE = remoteDevice;
 		
@@ -148,8 +153,6 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	public List<ChannelScanInfo> scanForChannels(String settings)
 			throws UnsupportedOperationException, ArgumentSyntaxException, ScanException, ConnectionException {
 		
-		if(LOCAL_DEVICE == null) throw new ConnectionException("Local device instance is null");
-		if(REMOTE_DEVICE == null) throw new ConnectionException("Remote device instance is null");
 		logger.trace("starting scanForChannes with settings {} on remote device {}...", settings, REMOTE_DEVICE.getInstanceNumber());
 		
 		if(!testConnection()) throw new ConnectionException("Remote device " + REMOTE_DEVICE.getInstanceNumber() + " is not reachable");
@@ -568,8 +571,11 @@ public class BACnetConnection implements Connection, DeviceEventListener {
 	 * @return true if the request is successful, false otherwise
 	 */
 	private boolean testConnection() {
-		ConfirmedRequestService request = new ReadPropertyRequest(REMOTE_DEVICE.getObjectIdentifier(), PropertyIdentifier.systemStatus);
-		LOCAL_DEVICE.send(REMOTE_DEVICE, request);
-		return true;
+		try {
+			DiscoveryUtils.getExtendedDeviceInformation(LOCAL_DEVICE, REMOTE_DEVICE);
+			return true;
+		} catch (BACnetException e) {
+			return false;
+		}
 	}
 }
