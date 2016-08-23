@@ -19,6 +19,8 @@ package org.openmucextensions.driver.bacnet;
 import org.openmuc.framework.config.ChannelScanInfo;
 import org.openmuc.framework.data.ValueType;
 
+import com.serotonin.bacnet4j.type.enumerated.ObjectType;
+
 /**
  * This class stores object type information for converting BACnet objects to OpenMUC types.
  * 
@@ -27,20 +29,22 @@ import org.openmuc.framework.data.ValueType;
  */
 public class ObjectTypeInfo {
 	
-	private final ValueType valueType;		// OpenMUC value type
-	private final Integer valueTypeLength;	// OpenMUC value length (for strings or arrays, null otherwise)
-	private final Boolean readable;			// is object readable
-	private final Boolean writable;			// is object writeable
+	 private final ValueType valueType; // OpenMUC value type
+	 private final Integer valueTypeLength; // OpenMUC value length (for strings or arrays, null otherwise)
+	 private final Boolean readable; // is object readable
+	 private final Boolean writable; // is object writeable
+	 private final ObjectType objectType;
+
+	 public ObjectTypeInfo(ValueType valueType, Integer valueTypeLength, Boolean readable, Boolean writable, ObjectType objecttyp) {
+	    this.valueType = valueType;
+	    this.valueTypeLength = valueTypeLength;
+	    this.readable = readable;
+	    this.writable = writable;
+	    this.objectType = objecttyp;
+	 }
 	
-	public ObjectTypeInfo(ValueType valueType, Integer valueTypeLength, Boolean readable, Boolean writable) {
-		this.valueType = valueType;
-		this.valueTypeLength = valueTypeLength;
-		this.readable = readable;
-		this.writable = writable;
-	}
-	
-	public ChannelScanInfo getChannelScanInfo(String address, String description) {	
-		return new ChannelScanInfo(address, description, valueType, valueTypeLength, readable, writable);
-	}
+	 public ChannelScanInfo getChannelScanInfo(String address, String description) {	
+		return new ChannelScanInfo(address, description + ";" + objectType.toString(), valueType, valueTypeLength, readable, writable);
+	 }
 	
 }
