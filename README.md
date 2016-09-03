@@ -36,7 +36,7 @@ The driver is configurable via the `channels.xml` file. An example snippet for B
     <driver id="bacnet">
         <device id="localserver">
             <deviceAddress>12345</deviceAddress>
-            <settings>localDevicePort=0xBAC0;broadcastIP=172.16.162.255;isServer=true</settings>
+            <settings>devicePort=0xBAC0;broadcastIP=172.16.162.255;isServer=true</settings>
             <connectRetryInterval>5m</connectRetryInterval>
             <channel id="FloatWert1">
                 <channelAddress>L'Float1</channelAddress>
