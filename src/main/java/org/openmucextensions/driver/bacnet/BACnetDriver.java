@@ -63,17 +63,23 @@ public class BACnetDriver implements DriverService {
 	private final static String SETTING_BROADCAST_IP = "broadcastIP";
 	/** Setting-name for the local ip address used for binding of the driver */
 	private final static String SETTING_LOCALBIND_ADDRESS = "localBindAddress";
-	/** Setting-name for the local UDP port which has to be used (for local BACnet server) */
-	private final static String SETTING_LOCAL_PORT = "localDevicePort";
+	/** Setting-name for device port */
+	private final static String SETTING_DEVICE_PORT = "devicePort";
 	/** Setting-name for the instance number of the local device (for local BACnet server) */
 	private final static String SETTING_LOCAL_DVC_INSTANCENUMBER = "localInstanceNumber";
-	/** Setting-name for the UDP port of the remote device */
-	private final static String SETTING_REMOTE_PORT = "remoteDevicePort";
 	/** Setting-name for the flag whether this device is a BACnet server */
 	private final static String SETTING_ISSERVER = "isServer";
 	/** Setting-name for BACnet write priority */
 	private final static String SETTING_WRITE_PRIORITY = "writePriority";
-
+	
+	/** Setting-name for the local UDP port which has to be used (for local BACnet server) */
+	@Deprecated
+	private final static String SETTING_LOCAL_PORT = "localDevicePort";
+	/** Setting-name for the UDP port of the remote device */
+	@Deprecated
+	private final static String SETTING_REMOTE_PORT = "remoteDevicePort";
+	
+	
 	private final static long defaultDiscoverySleepTime = 2000;
     private ConfigService configService;
 	
@@ -197,19 +203,17 @@ public class BACnetDriver implements DriverService {
 		try {
 			String broadcastIP = settings.get(SETTING_BROADCAST_IP);
 			String localBindAddress = settings.get(SETTING_LOCALBIND_ADDRESS);
-			final Integer localDevicePort;
-			if (settings.containsKey(SETTING_LOCAL_PORT))
-			    localDevicePort = parsePort(settings.get(SETTING_LOCAL_PORT));
-			else {
-	            if (settings.containsKey(SETTING_REMOTE_PORT))
-	                localDevicePort = parsePort(settings.get(SETTING_REMOTE_PORT));
-	            else
-	                localDevicePort = null;
-			}
+			
+			Integer devicePort = null;
+			if (settings.containsKey(SETTING_DEVICE_PORT))
+			    devicePort = parsePort(settings.get(SETTING_DEVICE_PORT));
+			else if (settings.containsKey(SETTING_LOCAL_PORT))
+				devicePort = parsePort(settings.get(SETTING_LOCAL_PORT));
+			
 			Integer localDeviceInstanceNumber = (settings.containsKey(SETTING_LOCAL_DVC_INSTANCENUMBER)) ? parseDeviceAddress(settings.get(SETTING_LOCAL_DVC_INSTANCENUMBER)).remoteInstance() : null;
 			isServer = (settings.containsKey(SETTING_ISSERVER)) ? Boolean.parseBoolean(settings.get(SETTING_ISSERVER)) : Boolean.FALSE;
 			
-			localDevice = localDevicesCache.obtainLocalDevice(broadcastIP, localBindAddress, localDevicePort, localDeviceInstanceNumber);
+			localDevice = localDevicesCache.obtainLocalDevice(broadcastIP, localBindAddress, devicePort, localDeviceInstanceNumber);
 		} catch (Exception e) {
 			throw new ConnectionException("error while getting/creating local device: " + e.getMessage());
 		}
@@ -245,7 +249,7 @@ public class BACnetDriver implements DriverService {
                         final Settings scanSettings = new Settings();
                         scanSettings.put(SETTING_BROADCAST_IP, settings.get(SETTING_BROADCAST_IP));
                         scanSettings.put(SETTING_LOCALBIND_ADDRESS, settings.get(SETTING_LOCALBIND_ADDRESS));
-                        scanSettings.put(SETTING_SCAN_PORT, settings.get(SETTING_REMOTE_PORT));
+                        scanSettings.put(SETTING_SCAN_PORT, settings.get(SETTING_DEVICE_PORT));
                         scanForDevices(scanSettings.toSettingsString(), null);
                     } catch (UnsupportedOperationException ignore) {
                         throw new AssertionError();
@@ -278,7 +282,10 @@ public class BACnetDriver implements DriverService {
 	
 	private void addRemoteDevice(Integer remoteInstance, String hostIp, Settings settings, LocalDevice localDevice)
 	            throws ArgumentSyntaxException, ConnectionException {
-	        int port = parsePort(settings.get(SETTING_REMOTE_PORT));
+	        
+			int port = 0;
+			if(settings.containsKey(SETTING_DEVICE_PORT)) port = parsePort(settings.get(SETTING_DEVICE_PORT));
+			else port = parsePort(settings.get(SETTING_REMOTE_PORT));
 	
 	        Address address = IpNetworkUtils.toAddress(hostIp, port);
 	
@@ -342,7 +349,7 @@ public class BACnetDriver implements DriverService {
                 if (hostIp != null) {
                     deviceAddress += ';' + hostIp.getHostAddress();
                 }
-				scanSettings.put(SETTING_REMOTE_PORT, scanPort.toString());
+				scanSettings.put(SETTING_DEVICE_PORT, scanPort.toString());
 				listener.deviceFound(new DeviceScanInfo(deviceAddress, scanSettings.toSettingsString(), device.getName()));
 			}
 		}
