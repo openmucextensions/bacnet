@@ -83,8 +83,6 @@ public class BACnetDriver implements DriverService {
 	private final static long defaultDiscoverySleepTime = 2000;
     private ConfigService configService;
 	
-	private final LocalDeviceCache localDevicesCache = new LocalDeviceCache();
-	
 	// key is the remote device instance number
 	private final Map<Integer, RemoteDevice> remoteDevices = new ConcurrentHashMap<Integer, RemoteDevice>();
 	
@@ -119,7 +117,7 @@ public class BACnetDriver implements DriverService {
 	 * @param context OSGi component context
 	 */
 	protected void deactivate(ComponentContext context) {
-		localDevicesCache.dismissAll();
+		LocalDeviceFactory.getInstance().dismissAll();
 		logger.info("BACnet communication driver deactivated, all local devices terminated");
 	}
 	
@@ -213,7 +211,7 @@ public class BACnetDriver implements DriverService {
 			Integer localDeviceInstanceNumber = (settings.containsKey(SETTING_LOCAL_DVC_INSTANCENUMBER)) ? parseDeviceAddress(settings.get(SETTING_LOCAL_DVC_INSTANCENUMBER)).remoteInstance() : null;
 			isServer = (settings.containsKey(SETTING_ISSERVER)) ? Boolean.parseBoolean(settings.get(SETTING_ISSERVER)) : Boolean.FALSE;
 			
-			localDevice = localDevicesCache.obtainLocalDevice(broadcastIP, localBindAddress, devicePort, localDeviceInstanceNumber);
+			localDevice = LocalDeviceFactory.getInstance().obtainLocalDevice(broadcastIP, localBindAddress, devicePort, localDeviceInstanceNumber);
 		} catch (Exception e) {
 			throw new ConnectionException("error while getting/creating local device: " + e.getMessage());
 		}
@@ -271,7 +269,7 @@ public class BACnetDriver implements DriverService {
     			throw new ConnectionException("Couldn't reach device " + deviceAddress, e);
     		}
 		
-			BACnetConnection connection = new BACnetConnection(localDevice, remoteDevice);
+			BACnetRemoteConnection connection = new BACnetRemoteConnection(localDevice, remoteDevice);
 			
 			Integer writePriority = (settings.containsKey(SETTING_WRITE_PRIORITY)) ? parseWritePriority(settings.get(SETTING_WRITE_PRIORITY)) : null;
 			connection.setWritePriority(writePriority);
@@ -305,7 +303,7 @@ public class BACnetDriver implements DriverService {
 		final LocalDevice localDevice;
 		// check if createLocalDevice will create a new one
 		try {
-		    localDevice = localDevicesCache.obtainLocalDevice(broadcastIP, null, scanPort, null);
+		    localDevice = LocalDeviceFactory.getInstance().obtainLocalDevice(broadcastIP, null, scanPort, null);
 		} catch (Exception e) {
 			throw new ScanException("error while getting/creating local device for scan: " + e.getMessage());
 		}
@@ -356,7 +354,7 @@ public class BACnetDriver implements DriverService {
         
         if((localDevice.getRemoteDevices().size()==0)) {
             logger.debug("dismiss local device {} because no remote devices have been found", localDevice.getConfiguration().getInstanceId());
-            localDevicesCache.dismissLocalDevice(scanPort);
+            LocalDeviceFactory.getInstance().dismissLocalDevice(scanPort);
         }
 	}
 	

@@ -41,7 +41,7 @@ import com.serotonin.bacnet4j.type.primitive.ObjectIdentifier;
  * 
  * @author daniel
  */
-public class BACnetServerConnection implements Connection {
+public class BACnetServerConnection extends BACnetConnection {
     private final static Logger logger = LoggerFactory.getLogger(BACnetServerConnection.class);
     // TODO: read from configuration
     private final static boolean SEND_IAM = true;

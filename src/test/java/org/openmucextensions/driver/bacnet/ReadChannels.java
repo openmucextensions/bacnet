@@ -30,7 +30,7 @@ public class ReadChannels {
 
         RemoteDevice remoteDevice = localDevice.findRemoteDevice(IpNetworkUtils.toAddress(remoteDeviceIpAddress, port), remoteDeviceIdentifier);
         
-        BACnetConnection connection = new BACnetConnection(localDevice, remoteDevice);
+        BACnetRemoteConnection connection = new BACnetRemoteConnection(localDevice, remoteDevice);
         
         List<ChannelRecordContainer> containers = new ArrayList<ChannelRecordContainer>();
         
