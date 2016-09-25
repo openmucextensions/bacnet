@@ -22,8 +22,6 @@ import org.openmuc.framework.driver.spi.Connection;
 import org.openmuc.framework.driver.spi.ConnectionException;
 import org.openmuc.framework.driver.spi.RecordsReceivedListener;
 import org.openmucextensions.driver.bacnet.BACnetUtils.ObjectPropertyIdentification;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.exception.BACnetServiceException;
@@ -42,7 +40,7 @@ import com.serotonin.bacnet4j.type.primitive.ObjectIdentifier;
  * @author daniel
  */
 public class BACnetServerConnection extends BACnetConnection {
-    private final static Logger logger = LoggerFactory.getLogger(BACnetServerConnection.class);
+    // private final static Logger logger = LoggerFactory.getLogger(BACnetServerConnection.class);
     // TODO: read from configuration
     private final static boolean SEND_IAM = true;
 

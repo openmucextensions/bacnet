@@ -44,7 +44,7 @@ public class ObjectTypeInfo {
 	 }
 	
 	 public ChannelScanInfo getChannelScanInfo(String address, String description) {	
-		return new ChannelScanInfo(address, description + ";" + objectType.toString(), valueType, valueTypeLength, readable, writable);
+		return new ChannelScanInfo(address, description, valueType, valueTypeLength, readable, writable);
 	 }
 	
 }

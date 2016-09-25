@@ -35,8 +35,6 @@ import org.openmuc.framework.driver.spi.ChannelRecordContainer;
 import org.openmuc.framework.driver.spi.ChannelValueContainer;
 import org.openmuc.framework.driver.spi.ConnectionException;
 import org.openmuc.framework.driver.spi.RecordsReceivedListener;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
@@ -90,7 +88,7 @@ import com.serotonin.bacnet4j.util.RequestUtils;
  */
 public class BACnetRemoteConnection extends BACnetConnection implements DeviceEventListener {
 	
-	private final static Logger logger = LoggerFactory.getLogger(BACnetRemoteConnection.class);
+	// private final static Logger logger = LoggerFactory.getLogger(BACnetRemoteConnection.class);
 	
 	private final LocalDevice LOCAL_DEVICE;
 	private final RemoteDevice REMOTE_DEVICE;
@@ -169,7 +167,7 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
 		
 			logger.trace("got basic information of {} objects. Filter by supported types...", objectIdentifiers.size());
 			// filter object identifiers to just get accepted ones (see constructor)
-			objectIdentifiers = getAcceptedObjects(objectIdentifiers);
+			// objectIdentifiers = getAcceptedObjects(objectIdentifiers);
 			logger.trace("getting detailed information of {} channels...", objectIdentifiers.size());
 			
 			// request name and description for each accepted object
@@ -201,9 +199,22 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
 					}
 				}
 		        
-		        ChannelScanInfo info = acceptedTypes.get(objectIdentifier.getObjectType()).getChannelScanInfo(channelAddress, description);
-		        channelScanInfos.add(info);
-		        objectHandles.put(channelAddress, objectIdentifier);
+		        // scan for channels always returns the type of the present value property
+		        PropertyTypeDefinition def = ObjectProperties.getPropertyTypeDefinition(objectIdentifier.getObjectType(), PropertyIdentifier.presentValue);
+		        
+		        // ChannelScanInfo info = acceptedTypes.get(objectIdentifier.getObjectType()).getChannelScanInfo(channelAddress, description);
+		       
+		        // objects with unknown property type definition will be ignored
+		        if (def!=null) {
+					ValueType valueType = ConversionUtil.getValueTypeMapping(def.getClazz());
+					if (valueType == null)
+						valueType = ValueType.STRING; // default value type
+					// TODO implement logic for is readable/writable for channel scan info
+					ChannelScanInfo info = new ChannelScanInfo(channelAddress, description, valueType, null, true,
+							true);
+					channelScanInfos.add(info);
+					objectHandles.put(channelAddress, objectIdentifier);
+				}
 			}
 		
 		} catch (BACnetException e) {
@@ -241,7 +252,7 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
 				    // logger.warn("identifier for " + container.getChannelAddress() + " is null. Probably unknown BACnet object name.");
 				    continue;
 				}
-				references.add(identifier, PropertyIdentifier.presentValue);
+				references.add(identifier, getPropertyIdentifier(container.getChannelAddress()));
 			}
 		} else {
 			references = (PropertyReferences) containerListHandle;
@@ -259,16 +270,21 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
 	            }
 				
 				try {
-				    final Encodable propertyValue = values.get(objectIdentifier, PropertyIdentifier.presentValue);
-				    if (logger.isTraceEnabled()) {
+				    
+					PropertyIdentifier propertyIdentifier = getPropertyIdentifier(channelRecordContainer.getChannelAddress());
+					final Encodable propertyValue = values.get(objectIdentifier, propertyIdentifier);
+				    
+					if (logger.isTraceEnabled()) {
 				        logger.trace("read new value for channel {} is type {} with value {}", 
 				                channelRecordContainer.getChannel().getId(), 
 				                propertyValue.getClass().getName(), 
 				                propertyValue.toString());
 				    }
-				    final PropertyTypeDefinition propertyTypeDefinition = ObjectProperties.getPropertyTypeDefinition(objectIdentifier.getObjectType(), PropertyIdentifier.presentValue);
+				     
+				    final PropertyTypeDefinition propertyTypeDefinition = ObjectProperties.getPropertyTypeDefinition(objectIdentifier.getObjectType(), propertyIdentifier);
 					final Value value = ConversionUtil.convertValue(propertyValue, propertyTypeDefinition);
 					channelRecordContainer.setRecord(new Record(value, timestamp, Flag.VALID));
+				
 				} catch (PropertyValueException e) {
 				    logger.warn(String.format("error while reading property of channel %s", channelRecordContainer.getChannel().getId()), e);
 				    try {
@@ -293,7 +309,10 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
     }
 
     private ObjectIdentifier getObjectIdentifier(ChannelRecordContainer container) throws UnsupportedOperationException, ConnectionException {
-        final ObjectIdentifier objectIdentifier = getObjectIdentifier(container.getChannelHandle(), container.getChannelAddress());
+        
+    	String channelAddress = getObjectAddress(container.getChannelAddress());
+    	
+    	final ObjectIdentifier objectIdentifier = getObjectIdentifier(container.getChannelHandle(), channelAddress);
         container.setChannelHandle(objectIdentifier);
         return objectIdentifier;
     }
