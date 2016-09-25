@@ -28,7 +28,7 @@ public class ScanForChannels {
 
         RemoteDevice remoteDevice = localDevice.findRemoteDevice(IpNetworkUtils.toAddress(remoteDeviceIpAddress, port), remoteDeviceIdentifier);
         
-        BACnetConnection connection = new BACnetConnection(localDevice, remoteDevice);
+        BACnetRemoteConnection connection = new BACnetRemoteConnection(localDevice, remoteDevice);
         
         long startTime = System.currentTimeMillis();
         List<ChannelScanInfo> channelScanInfos = connection.scanForChannels(null);

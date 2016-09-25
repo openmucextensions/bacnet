@@ -78,11 +78,10 @@ public abstract class BACnetUtils {
         final String objName = objNameSplit[0];
         final String propName = objNameSplit[1];
         try {
-            final Field field = PropertyIdentifier.class.getField(propName);
-            final PropertyIdentifier propertyIdentifier = (PropertyIdentifier) field.get(null);
+            final PropertyIdentifier propertyIdentifier = PropertyIdentifierFactory.getPropertyIdentifier(propName);
             return new ObjectPropertyIdentification(objName, propertyIdentifier);
         }
-        catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException | ClassCastException e) {
+        catch (IllegalArgumentException | SecurityException | ClassCastException e) {
             logger.error("invalid channelAddress {} because of wrong property identifier ({}) - cannot create object", channelAddress, e.getMessage());
             return null;
         }
@@ -105,4 +104,5 @@ public abstract class BACnetUtils {
             return property;
         }
     }
+    
 }

@@ -17,6 +17,7 @@ import com.serotonin.bacnet4j.type.constructed.ReadAccessResult;
 import com.serotonin.bacnet4j.type.constructed.ReadAccessResult.Result;
 import com.serotonin.bacnet4j.type.constructed.ReadAccessSpecification;
 import com.serotonin.bacnet4j.type.constructed.SequenceOf;
+import com.serotonin.bacnet4j.type.enumerated.ObjectType;
 import com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier;
 import com.serotonin.bacnet4j.type.primitive.ObjectIdentifier;
 import com.serotonin.bacnet4j.util.DiscoveryUtils;
@@ -44,7 +45,8 @@ public class MultipleRead {
 
         for (ObjectIdentifier objectIdentifier : oids) {
         	// specifications.add(new ReadAccessSpecification(objectIdentifier, PropertyIdentifier.objectName));
-        	specifications.add(new ReadAccessSpecification(objectIdentifier, PropertyIdentifier.presentValue));
+        	if(objectIdentifier.getObjectType().equals(ObjectType.analogInput))
+        		specifications.add(new ReadAccessSpecification(objectIdentifier, PropertyIdentifier.all));
 		}
     	
 //        ObjectIdentifier id1 = new ObjectIdentifier(ObjectType.schedule, 1);

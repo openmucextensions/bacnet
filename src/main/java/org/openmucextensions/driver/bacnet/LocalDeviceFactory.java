@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,25 +16,47 @@ import com.serotonin.bacnet4j.transport.DefaultTransport;
 import com.serotonin.bacnet4j.transport.Transport;
 
 /**
- * A simple cache for {@link LocalDevice}s which contains a reference counter to check how often a single device
- * has been obtained. On dismiss the reference counter will be decreased and if there are no references any more,
- * the device will be terminated and removed from the cache.
- * @author daniel
+ * A singleton factory class to handle instances of local BACnet devices.
+ * 
+ * @author Lechner, Pichler
+ *
  */
-public class LocalDeviceCache {
-    private final static Logger logger = LoggerFactory.getLogger(LocalDeviceCache.class);
-    
-    /** The cache of local devices. Key is the IP port number of the local device and value is the device */
-    private final Map<Integer, LocalDevice> localDevices = new HashMap<Integer, LocalDevice>();
-    /** Number of references of the local device stored in the map {@link #localDevices}. 
-     *  (=how often {@link #obtainLocalDevice(String, String, Integer, Integer)}
-     *  was called for this port). */
-    private final Map<Integer, Integer> localDeviceReferences = new HashMap<>();
-    private int nextDeviceInstanceNumber = 10000;
+public class LocalDeviceFactory {
+	
+	private LocalDeviceFactory() { } // private constructor for singleton
+	
+	private static LocalDeviceFactory INSTANCE = null;
+	
+	private final static Logger LOGGER = LoggerFactory.getLogger(BACnetDriver.class);
+	private final Map<Integer, LocalDevice> localDevices = new ConcurrentHashMap<Integer, LocalDevice>();
+	private final Map<Integer, Integer> localDeviceReferences = new HashMap<>();
+	private int nextDeviceInstanceNumber = 10000;
+	
+	/**
+	 * Gets a single <code>LocalDeviceFactory</code> instance.
+	 * 
+	 * @return a single <code>LocalDeviceFactory</code> instance
+	 */
+	public static LocalDeviceFactory getInstance() {
+		if(INSTANCE==null) {
+			synchronized (LocalDeviceFactory.class) {
+				if(INSTANCE==null)
+					INSTANCE = new LocalDeviceFactory();
+			}
+		}
+		return INSTANCE;
+	}
 
     /**
-     * Get a {@link LocalDevice} for the given port. The device might be created or a cached instance may be returned.
+     * Gets a {@link LocalDevice} instance for the given port. The device might be created or a cached instance may be returned.
      * This localDevice must be dismissed if not used any more by calling {@link #dismissLocalDevice(Integer)}.
+     * 
+     * @param broadcastIP the broadcast IP of the local device or <code>null</code> (default: 255.255.255.255)
+     * @param localBindAddress the local bind IP or <code>null</code> (default: 0.0.0.0)
+     * @param localPort the local IP port or <code>null</code> (default: 0xBAC0)
+     * @param deviceInstanceNumber the local device instance number or <code>null</code> (default: auto-increment starting from 10000)
+     * @return a {@link LocalDevice} instance for the given port
+     * @throws Exception if any error occurs while initializing the local device
      */
     LocalDevice obtainLocalDevice(String broadcastIP, String localBindAddress, Integer localPort, Integer deviceInstanceNumber) throws Exception {
         synchronized (localDevices) {
@@ -41,9 +64,9 @@ public class LocalDeviceCache {
             if(localDevices.containsKey(localPort)) {
                 final LocalDevice existingLocalDevice = localDevices.get(localPort);
                 final int existingInstanceId = existingLocalDevice.getConfiguration().getInstanceId();
-                logger.debug("reusing local BACnet device with instance number {} and port 0x{}", existingInstanceId, Integer.toHexString(localPort));
+                LOGGER.debug("reusing local BACnet device with instance number {} and port 0x{}", existingInstanceId, Integer.toHexString(localPort));
                 if ((deviceInstanceNumber != null) && (!deviceInstanceNumber.equals(existingInstanceId))) {
-                    logger.warn("instance number of existing device differs from specified one! (configured: {}, used: {})", existingInstanceId, deviceInstanceNumber);
+                    LOGGER.warn("instance number of existing device differs from specified one! (configured: {}, used: {})", existingInstanceId, deviceInstanceNumber);
                 }
                 increaseDeviceReference(localPort);
                 return existingLocalDevice;
@@ -58,7 +81,7 @@ public class LocalDeviceCache {
             final LocalDevice device = new LocalDevice(deviceInstanceNumber, transport);
             device.initialize();
             
-            logger.debug("created local BACnet device with instance number {} and port 0x{}", deviceInstanceNumber, Integer.toHexString(localPort));
+            LOGGER.debug("created local BACnet device with instance number {} and port 0x{}", deviceInstanceNumber, Integer.toHexString(localPort));
             
             localDevices.put(localPort, device);
             increaseDeviceReference(localPort);
@@ -106,7 +129,7 @@ public class LocalDeviceCache {
             if (!referencesLeft) {
                 // no more references to this device --> remove it from cache and terminate it
                 final LocalDevice localDevice = localDevices.remove(port);
-                logger.debug("local device {} will be terminated", localDevice.getConfiguration().getInstanceId());
+                LOGGER.debug("local device {} will be terminated", localDevice.getConfiguration().getInstanceId());
                 localDevice.terminate();
             }
         }
@@ -123,4 +146,5 @@ public class LocalDeviceCache {
         localDevices.clear();
         localDeviceReferences.clear();
     }
+	
 }
