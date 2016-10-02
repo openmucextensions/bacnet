@@ -6,6 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier;
+import com.serotonin.bacnet4j.type.primitive.ObjectIdentifier;
+import com.serotonin.bacnet4j.util.PropertyReferences;
 
 /**
  * This abstract call provides basic functionality for BACnet server and remote connections.
@@ -71,6 +73,52 @@ public abstract class BACnetConnection implements Connection {
 			logger.error("Invalid property identifier '{}' in channel address {}", tokens[1], channelAddress);
 			return null;
 		}
+	}
+	
+	/**
+	 * Adds the property identifiers that are relevant for a parameter list to a <code>PropertyReferences</code> object.
+	 * 
+	 * @param references the <code>PropertyReferences</code> object
+	 * @param objectId the object identifier
+	 */
+	protected void addPropertyIdentifiers(final PropertyReferences references, final ObjectIdentifier objectId) {
+		
+		switch (objectId.getObjectType().intValue()) {
+		
+		case 0: // analog input
+		case 13: // multistate input
+			references.add(objectId, PropertyIdentifier.lowLimit);
+			references.add(objectId, PropertyIdentifier.highLimit);
+			references.add(objectId, PropertyIdentifier.limitEnable);
+			break;
+		
+		case 3: // binary input
+			break;
+			
+		case 1: // analog output
+		case 4: // binary output
+		case 14: // multistate output
+			break;
+		
+		case 2: // analog value
+		case 5: // binary value
+		case 19: // multistate value
+			references.add(objectId, PropertyIdentifier.presentValue);
+			break;
+		
+		case 6: // calendar
+			references.add(objectId, PropertyIdentifier.dateList);
+			break;
+		
+		case 17: // schedule
+			references.add(objectId, PropertyIdentifier.weeklySchedule);
+			references.add(objectId, PropertyIdentifier.exceptionSchedule);
+			break;
+		
+		default: // unknown or not relevant object
+			
+		}
+		
 	}
 
 }

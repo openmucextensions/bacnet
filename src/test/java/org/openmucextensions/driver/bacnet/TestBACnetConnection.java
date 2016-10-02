@@ -5,7 +5,6 @@ import static org.hamcrest.CoreMatchers.*;
 
 import java.util.List;
 
-import org.hamcrest.core.IsNull;
 import org.junit.Before;
 import org.junit.Test;
 import org.openmuc.framework.config.ArgumentSyntaxException;
@@ -16,6 +15,7 @@ import org.openmuc.framework.driver.spi.ChannelValueContainer;
 import org.openmuc.framework.driver.spi.ConnectionException;
 import org.openmuc.framework.driver.spi.RecordsReceivedListener;
 
+import com.serotonin.bacnet4j.type.enumerated.ObjectType;
 import com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier;
 
 public class TestBACnetConnection extends BACnetConnection {
@@ -42,6 +42,14 @@ public class TestBACnetConnection extends BACnetConnection {
 		assertThat(getPropertyIdentifier("object#presentValue"), is(PropertyIdentifier.presentValue));
 		assertThat(getPropertyIdentifier("object#minPresValue"), is(PropertyIdentifier.minPresValue));
 		assertThat(getPropertyIdentifier("object#lowLimit"), is(PropertyIdentifier.lowLimit));
+		
+	}
+	
+	@Test
+	public void testObjectTypeEnum() {
+		
+		assertThat(ObjectType.analogInput.intValue(), is(0));
+		assertThat(ObjectType.binaryValue.intValue(), is(5));
 		
 	}
 

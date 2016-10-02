@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -56,6 +57,7 @@ import com.serotonin.bacnet4j.type.Encodable;
 import com.serotonin.bacnet4j.type.constructed.Address;
 import com.serotonin.bacnet4j.type.constructed.Choice;
 import com.serotonin.bacnet4j.type.constructed.DateTime;
+import com.serotonin.bacnet4j.type.constructed.PropertyReference;
 import com.serotonin.bacnet4j.type.constructed.PropertyValue;
 import com.serotonin.bacnet4j.type.constructed.ReadAccessResult;
 import com.serotonin.bacnet4j.type.constructed.ReadAccessResult.Result;
@@ -67,7 +69,6 @@ import com.serotonin.bacnet4j.type.enumerated.EventState;
 import com.serotonin.bacnet4j.type.enumerated.EventType;
 import com.serotonin.bacnet4j.type.enumerated.MessagePriority;
 import com.serotonin.bacnet4j.type.enumerated.NotifyType;
-import com.serotonin.bacnet4j.type.enumerated.ObjectType;
 import com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier;
 import com.serotonin.bacnet4j.type.notificationParameters.NotificationParameters;
 import com.serotonin.bacnet4j.type.primitive.CharacterString;
@@ -88,7 +89,8 @@ import com.serotonin.bacnet4j.util.RequestUtils;
  */
 public class BACnetRemoteConnection extends BACnetConnection implements DeviceEventListener {
 	
-	// private final static Logger logger = LoggerFactory.getLogger(BACnetRemoteConnection.class);
+	// ignores channels that contain a '.'-char (Siemens compound connectors)
+	private boolean ignoreCompoundChannels = true;
 	
 	private final LocalDevice LOCAL_DEVICE;
 	private final RemoteDevice REMOTE_DEVICE;
@@ -98,7 +100,7 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
 	// BACnet write priority between 1 and 16 or null for relinquish_default
 	private Integer writePriority = null;
 	
-	private final Map<ObjectType, ObjectTypeInfo> acceptedTypes;
+	// private final Map<ObjectType, ObjectTypeInfo> acceptedTypes;
 	private Map<String, ObjectIdentifier> objectHandles = null;
 	
 	private Map<ObjectIdentifier, ChannelRecordContainer> covContainers = new ConcurrentHashMap<ObjectIdentifier, ChannelRecordContainer>();
@@ -119,30 +121,7 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
 		
 		LOCAL_DEVICE = localDevice;
 		REMOTE_DEVICE = remoteDevice;
-		
-		 // accepted object types (only this object types will be provided as channel to the OpenMUC framework)
-        // the related ObjectTypeInfo class specifies the OpenMUC behavior
-        acceptedTypes = new HashMap<ObjectType, ObjectTypeInfo>();
-        // analog objects are of type REAL in BACnet (32 bit, float)
-        acceptedTypes.put(ObjectType.analogInput,
-                new ObjectTypeInfo(ValueType.FLOAT, null, Boolean.TRUE, Boolean.FALSE, ObjectType.analogInput));
-        acceptedTypes.put(ObjectType.analogOutput,
-                new ObjectTypeInfo(ValueType.FLOAT, null, Boolean.TRUE, Boolean.TRUE, ObjectType.analogOutput));
-        acceptedTypes.put(ObjectType.analogValue,
-                new ObjectTypeInfo(ValueType.FLOAT, null, Boolean.TRUE, Boolean.TRUE, ObjectType.analogValue));
-        acceptedTypes.put(ObjectType.binaryInput,
-                new ObjectTypeInfo(ValueType.BOOLEAN, null, Boolean.TRUE, Boolean.FALSE, ObjectType.binaryInput));
-        acceptedTypes.put(ObjectType.binaryOutput,
-                new ObjectTypeInfo(ValueType.BOOLEAN, null, Boolean.TRUE, Boolean.TRUE, ObjectType.binaryOutput));
-        acceptedTypes.put(ObjectType.binaryValue,
-                new ObjectTypeInfo(ValueType.BOOLEAN, null, Boolean.TRUE, Boolean.TRUE, ObjectType.binaryValue));
-        acceptedTypes.put(ObjectType.multiStateInput,
-                new ObjectTypeInfo(ValueType.INTEGER, null, Boolean.TRUE, Boolean.FALSE, ObjectType.multiStateInput));
-        acceptedTypes.put(ObjectType.multiStateOutput,
-                new ObjectTypeInfo(ValueType.INTEGER, null, Boolean.TRUE, Boolean.TRUE, ObjectType.multiStateOutput));
-        acceptedTypes.put(ObjectType.multiStateValue,
-                new ObjectTypeInfo(ValueType.INTEGER, null, Boolean.TRUE, Boolean.TRUE, ObjectType.multiStateValue));
-	
+			
 		LOCAL_DEVICE.getEventHandler().addListener(this);
 	}
 
@@ -151,8 +130,18 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
 			throws UnsupportedOperationException, ArgumentSyntaxException, ScanException, ConnectionException {
 		
 		logger.trace("starting scanForChannes with settings {} on remote device {}...", settings, REMOTE_DEVICE.getInstanceNumber());
-		
 		if(!testConnection()) throw new ConnectionException("Remote device " + REMOTE_DEVICE.getInstanceNumber() + " is not reachable");
+		
+		if(settings!=null && settings.toLowerCase().equals("parameterlist")) {
+			if(objectHandles==null) scanForChannels("");
+			try {
+				return getParameterList();
+			} catch (BACnetException e) {
+				throw new ScanException(e);
+			} catch (PropertyValueException e) {
+				throw new ScanException(e);
+			} 
+		}
 		
 		List<ChannelScanInfo> channelScanInfos = new ArrayList<ChannelScanInfo>();
 		
@@ -205,13 +194,14 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
 		        // ChannelScanInfo info = acceptedTypes.get(objectIdentifier.getObjectType()).getChannelScanInfo(channelAddress, description);
 		       
 		        // objects with unknown property type definition will be ignored
-		        if (def!=null) {
+		        // SIEMENS: channel addresses with . mean compound connectors and will be ignored
+		        if (def!=null && (!channelAddress.contains(".") && ignoreCompoundChannels)) {
 					ValueType valueType = ConversionUtil.getValueTypeMapping(def.getClazz());
-					if (valueType == null)
-						valueType = ValueType.STRING; // default value type
-					// TODO implement logic for is readable/writable for channel scan info
-					ChannelScanInfo info = new ChannelScanInfo(channelAddress, description, valueType, null, true,
-							true);
+					if (valueType == null) valueType = ValueType.STRING; // default value type
+				
+					boolean isCommandable = ObjectProperties.isCommandable(objectIdentifier.getObjectType(), PropertyIdentifier.presentValue);
+					
+					ChannelScanInfo info = new ChannelScanInfo(channelAddress, description, valueType, null, true, isCommandable);
 					channelScanInfos.add(info);
 					objectHandles.put(channelAddress, objectIdentifier);
 				}
@@ -230,6 +220,41 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
 		
         logger.trace("scanForChannels finished on remote device {}.", REMOTE_DEVICE.getInstanceNumber());
 		return channelScanInfos;
+	}
+
+	private List<ChannelScanInfo> getParameterList() throws BACnetException, PropertyValueException {
+		
+		List<ChannelScanInfo> scanInfos = new Vector<>();
+		
+		// create a list of property references that should be read
+		PropertyReferences references = new PropertyReferences();
+		for (String handle : objectHandles.keySet()) {
+			ObjectIdentifier objectId = objectHandles.get(handle);
+			addPropertyIdentifiers(references, objectId);
+		}
+		
+		// read values
+		PropertyValues values = RequestUtils.readProperties(LOCAL_DEVICE, REMOTE_DEVICE, references, null);
+		
+		// create and add channel scan info including the actual value
+		for (String channelAddress : objectHandles.keySet()) {
+			
+			final ObjectIdentifier objectId = objectHandles.get(channelAddress);
+			
+			// check if object is relevant for parameter list
+			if(references.getProperties().containsKey(objectId)) {
+				
+				List<PropertyReference> propertyReferences = references.getProperties().get(objectId);
+				for (PropertyReference propertyReference : propertyReferences) {
+					Encodable value = values.get(objectId, propertyReference.getPropertyIdentifier());
+					scanInfos.add(new ChannelScanInfo(channelAddress + separator + propertyReference.getPropertyIdentifier().toString(), "value=" + value.toString(), ValueType.STRING, 1024));
+				}
+				
+			}
+		}
+
+		// return parameter list
+		return scanInfos;
 	}
 
 	@Override
@@ -419,19 +444,6 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
 	public void disconnect() {
 		removeSubscriptions();
 		LOCAL_DEVICE.getEventHandler().removeListener(this);
-	}
-	
-	// filters object types that can be read/written by the driver 
-	private List<ObjectIdentifier> getAcceptedObjects(List<ObjectIdentifier> allIdentifiers) {
-		
-		List<ObjectIdentifier> acceptedIdentifiers = new ArrayList<ObjectIdentifier>();
-		
-		for (ObjectIdentifier objectIdentifier : allIdentifiers) {
-			if(acceptedTypes.containsKey(objectIdentifier.getObjectType())) {
-				acceptedIdentifiers.add(objectIdentifier);
-			}
-		}
-		return acceptedIdentifiers;
 	}
 	
 	/**

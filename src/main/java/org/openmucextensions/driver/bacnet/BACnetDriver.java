@@ -189,6 +189,8 @@ public class BACnetDriver implements DriverService {
 	public Connection connect(final String deviceAddress, final String settingsString)
 			throws ArgumentSyntaxException, ConnectionException {
 		
+		logger.debug("Connecting to device {} with settings {}...", deviceAddress, settingsString);
+		
 	    DeviceAddress d = parseDeviceAddress(deviceAddress);
 	    String hostIp = d.hostIp();
 	    Integer remoteInstance = d.remoteInstance();
