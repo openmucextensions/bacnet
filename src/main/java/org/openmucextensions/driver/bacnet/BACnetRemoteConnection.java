@@ -444,6 +444,7 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
 	public void disconnect() {
 		removeSubscriptions();
 		LOCAL_DEVICE.getEventHandler().removeListener(this);
+        LocalDeviceFactory.getInstance().dismissLocalDevice(LOCAL_DEVICE);
 	}
 	
 	/**

@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.serotonin.bacnet4j.LocalDevice;
+import com.serotonin.bacnet4j.npdu.Network;
 import com.serotonin.bacnet4j.npdu.ip.IpNetwork;
 import com.serotonin.bacnet4j.npdu.ip.IpNetworkBuilder;
 import com.serotonin.bacnet4j.transport.DefaultTransport;
@@ -118,6 +119,23 @@ public class LocalDeviceFactory {
         }
     }
 
+    /**
+     * Dismiss the usage of a {@link LocalDevice}. This may simply reduce the reference-counter by one or if no
+     * references are left terminate the device.
+     * @param port
+     */
+    void dismissLocalDevice(LocalDevice device) {
+        final Network localDeviceNetwork = device.getNetwork();
+        if (!IpNetwork.class.isAssignableFrom(localDeviceNetwork.getClass())) {
+            // local device's network is not an IpNetwork --> device is not created by this factory!
+            LOGGER.error("local device {} is not based on IpNetwork, but {}. Cannot dismiss device!", 
+                    device, localDeviceNetwork.getClass().getCanonicalName());
+            return;
+        }
+        final IpNetwork ipNetwork = (IpNetwork) localDeviceNetwork;
+        dismissLocalDevice(ipNetwork.getPort());
+    }
+    
     /**
      * Dismiss the usage of a {@link LocalDevice}. This may simply reduce the reference-counter by one or if no
      * references are left terminate the device.

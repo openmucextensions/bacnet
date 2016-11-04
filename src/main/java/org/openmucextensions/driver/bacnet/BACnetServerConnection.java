@@ -347,6 +347,7 @@ public class BACnetServerConnection extends BACnetConnection {
             }
             it.remove();
         }
+        LocalDeviceFactory.getInstance().dismissLocalDevice(localDevice);
     }
     
     public static ObjectType getObjectTypeOfBACnetObject(BACnetObject obj) throws ConnectionException {
