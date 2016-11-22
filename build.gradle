@@ -39,12 +39,16 @@ configurations.create('embed')
 configurations.compile.extendsFrom configurations.embed
 
 dependencies {
-  def openmucversion = '0.15.2'
+  def openmucversion = '0.16.0'
 
   compile group: 'org.osgi', name: 'osgi_R4_compendium', version: '1.0'
   compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.21'
+  
+  // compile group: 'com.google.code.gson', name: 'gson', version: '2.6.2'
+  
   compile group: 'org.openmuc.framework', name: 'openmuc-core-spi', version: openmucversion
   compile group: 'org.openmuc.framework', name: 'openmuc-core-api', version: openmucversion
+  
   compile 'org.apache.commons:commons-lang3:3.4'
   
   embed group: 'com.serotonin', name: 'BACnet4J', version: '3.2.3-openmucextensions1'
