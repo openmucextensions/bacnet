@@ -329,7 +329,7 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
     }
 
     private static String createMetaData(String value, String unit) {
-        return MessageFormat.format("value={0};u={1}", value.toString(), unit);
+        return MessageFormat.format("'{'\"v\":\"{0}\",\"u\":\"{1}\"'}'", value, unit);
     }
 
     @Override

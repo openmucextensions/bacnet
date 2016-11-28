@@ -2,9 +2,10 @@ buildscript {
   repositories {
       mavenCentral()
   }
-  dependencies {
-      classpath 'net.researchgate:gradle-release:2.1.1'
-  }
+}
+
+plugins {
+  id 'net.researchgate.release' version '2.4.1'
 }
 
 apply plugin: 'java'
@@ -12,7 +13,6 @@ apply plugin: 'eclipse'
 apply plugin: 'osgi'
 apply plugin: 'maven'
 apply plugin: 'signing'
-apply plugin: 'net.researchgate.release'
 
 group = 'org.openmucextensions'
 
@@ -43,8 +43,6 @@ dependencies {
 
   compile group: 'org.osgi', name: 'osgi_R4_compendium', version: '1.0'
   compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.21'
-  
-  // compile group: 'com.google.code.gson', name: 'gson', version: '2.6.2'
   
   compile group: 'org.openmuc.framework', name: 'openmuc-core-spi', version: openmucversion
   compile group: 'org.openmuc.framework', name: 'openmuc-core-api', version: openmucversion
