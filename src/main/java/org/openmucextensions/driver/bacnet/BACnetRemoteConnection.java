@@ -16,9 +16,9 @@
  */
 package org.openmucextensions.driver.bacnet;
 
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -39,6 +39,10 @@ import org.openmuc.framework.driver.spi.ChannelValueContainer;
 import org.openmuc.framework.driver.spi.ConnectionException;
 import org.openmuc.framework.driver.spi.RecordsReceivedListener;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.RemoteDevice;
 import com.serotonin.bacnet4j.RemoteObject;
@@ -57,7 +61,10 @@ import com.serotonin.bacnet4j.service.confirmed.SubscribeCOVRequest;
 import com.serotonin.bacnet4j.service.confirmed.WritePropertyRequest;
 import com.serotonin.bacnet4j.type.Encodable;
 import com.serotonin.bacnet4j.type.constructed.Address;
+import com.serotonin.bacnet4j.type.constructed.CalendarEntry;
 import com.serotonin.bacnet4j.type.constructed.Choice;
+import com.serotonin.bacnet4j.type.constructed.DailySchedule;
+import com.serotonin.bacnet4j.type.constructed.DateRange;
 import com.serotonin.bacnet4j.type.constructed.DateTime;
 import com.serotonin.bacnet4j.type.constructed.PropertyReference;
 import com.serotonin.bacnet4j.type.constructed.PropertyValue;
@@ -66,7 +73,10 @@ import com.serotonin.bacnet4j.type.constructed.ReadAccessResult.Result;
 import com.serotonin.bacnet4j.type.constructed.ReadAccessSpecification;
 import com.serotonin.bacnet4j.type.constructed.Sequence;
 import com.serotonin.bacnet4j.type.constructed.SequenceOf;
+import com.serotonin.bacnet4j.type.constructed.SpecialEvent;
 import com.serotonin.bacnet4j.type.constructed.TimeStamp;
+import com.serotonin.bacnet4j.type.constructed.TimeValue;
+import com.serotonin.bacnet4j.type.constructed.WeekNDay;
 import com.serotonin.bacnet4j.type.enumerated.EngineeringUnits;
 import com.serotonin.bacnet4j.type.enumerated.EventState;
 import com.serotonin.bacnet4j.type.enumerated.EventType;
@@ -75,7 +85,10 @@ import com.serotonin.bacnet4j.type.enumerated.NotifyType;
 import com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier;
 import com.serotonin.bacnet4j.type.notificationParameters.NotificationParameters;
 import com.serotonin.bacnet4j.type.primitive.CharacterString;
+import com.serotonin.bacnet4j.type.primitive.Date;
 import com.serotonin.bacnet4j.type.primitive.ObjectIdentifier;
+import com.serotonin.bacnet4j.type.primitive.Primitive;
+import com.serotonin.bacnet4j.type.primitive.Time;
 import com.serotonin.bacnet4j.type.primitive.UnsignedInteger;
 import com.serotonin.bacnet4j.util.DiscoveryUtils;
 import com.serotonin.bacnet4j.util.PropertyReferences;
@@ -150,7 +163,7 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
             }
         }
 
-        List<ChannelScanInfo> channelScanInfos = new ArrayList<ChannelScanInfo>();
+        List<ChannelScanInfo> channelScanInfos = new LinkedList<>();
 
         objectHandles = new HashMap<>();
 
@@ -170,7 +183,7 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
             // request name and description for each accepted object
             for (ObjectIdentifier objectIdentifier : objectIdentifiers) {
 
-                List<ReadAccessSpecification> specifications = new ArrayList<>();
+                List<ReadAccessSpecification> specifications = new ArrayList<>(3);
                 specifications.add(new ReadAccessSpecification(objectIdentifier, PropertyIdentifier.objectName));
                 specifications.add(new ReadAccessSpecification(objectIdentifier, PropertyIdentifier.description));
                 specifications.add(new ReadAccessSpecification(objectIdentifier, PropertyIdentifier.units));
@@ -228,7 +241,6 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
                     ChannelScanInfo info = new ChannelScanInfo(channelAddress, description, valueType, null, true,
                             isCommandable, metadata);
 
-                    loggchannelScan(info);
                     channelScanInfos.add(info);
                     objectHandles.put(channelAddress, objectIdentifier);
                 }
@@ -251,6 +263,7 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
         return channelScanInfos;
     }
 
+    @SuppressWarnings("unchecked")
     private List<ChannelScanInfo> getParameterList() throws BACnetException, PropertyValueException {
 
         List<ChannelScanInfo> scanInfos = new Vector<>();
@@ -305,14 +318,42 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
                     String newChannelAddress = channelAddress + separator
                             + propertyReference.getPropertyIdentifier().toString();
 
-                    String valueStr = value.toString();
+                    String valueStr;
+                    /*
+                     * TODO if (propertyReference.getPropertyIdentifier().equals(PropertyIdentifier.presentValue)) {
+                     * continue; } else
+                     */
+                    if (propertyReference.getPropertyIdentifier().equals(PropertyIdentifier.weeklySchedule)) {
+                        checkIfSequenceOf(value);
+                        JsonArray list = new JsonArray();
+                        ((SequenceOf<DailySchedule>) value).forEach(ds -> list.add(dailyScheduleToJson(ds)));
+
+                        valueStr = list.toString();
+                    }
+                    else if (propertyReference.getPropertyIdentifier().equals(PropertyIdentifier.exceptionSchedule)) {
+                        checkIfSequenceOf(value);
+                        JsonArray list = new JsonArray();
+                        ((SequenceOf<SpecialEvent>) value).forEach(se -> list.add(specialEventToJson(se)));
+
+                        valueStr = list.toString();
+                    }
+                    else if (propertyReference.getPropertyIdentifier().equals(PropertyIdentifier.dateList)) {
+                        checkIfSequenceOf(value);
+                        JsonArray list = new JsonArray();
+
+                        ((SequenceOf<CalendarEntry>) value).forEach(c -> list.add(calendarToJson(c)));
+
+                        valueStr = list.toString();
+                    }
+                    else {
+                        valueStr = value.toString();
+                    }
 
                     String metadata = createMetaData(valueStr, unit);
 
                     ChannelScanInfo channelScanInfo = new ChannelScanInfo(newChannelAddress, description,
                             ValueType.STRING, 1024, true, true, metadata);
 
-                    loggchannelScan(channelScanInfo);
                     scanInfos.add(channelScanInfo);
                 }
             }
@@ -323,13 +364,115 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
         return scanInfos;
     }
 
-    private void loggchannelScan(ChannelScanInfo channelScanInfo) {
-        logger.info("Address: {}\n description: {}\n meta: {}\n type: {}", channelScanInfo.getChannelAddress(),
-                channelScanInfo.getDescription(), channelScanInfo.getMetaData(), channelScanInfo.getValueType());
+    private JsonArray dailyScheduleToJson(DailySchedule ds) {
+        JsonArray result = new JsonArray();
+        ds.getDaySchedule().forEach(t -> result.add(timeValueToJson(t)));
+        return result;
+    }
+
+    private JsonObject specialEventToJson(SpecialEvent se) {
+        JsonObject result = new JsonObject();
+
+        int contextId = se.isCalendarReference() ? 1 : 0;
+        result.addProperty("calendar", contextId);
+
+        JsonArray timeValues = new JsonArray();
+        se.getListOfTimeValues().forEach(t -> timeValues.add(timeValueToJson(t)));
+
+        result.add("listOfTimeValues", timeValues);
+
+        result.addProperty("eventPriority", se.getEventPriority().bigIntegerValue());
+
+        return result;
+    }
+
+    private JsonObject timeValueToJson(TimeValue t) {
+        JsonObject timeValue = new JsonObject();
+
+        timeValue.add("time", timeToJson(t.getTime()));
+
+        Primitive value = t.getValue();
+        JsonElement property;
+        if (value instanceof Date) {
+            property = dateToJson((Date) value);
+        }
+        else if (value instanceof Time) {
+            property = timeToJson((Time) value);
+        }
+        else {
+            // the other primitives have an appropriate tostring
+            property = new JsonPrimitive(value.toString());
+        }
+
+        timeValue.add("value", property);
+
+        return timeValue;
+    }
+
+    private JsonObject timeToJson(Time time) {
+        JsonObject jsonTime = new JsonObject();
+
+        jsonTime.addProperty("hour", time.getHour());
+        jsonTime.addProperty("minute", time.getMinute());
+        jsonTime.addProperty("second", time.getSecond());
+        jsonTime.addProperty("hundredth", time.getHundredth());
+        return jsonTime;
+    }
+
+    private static JsonObject calendarToJson(CalendarEntry calendar) {
+        JsonObject result;
+
+        int contextId;
+        if (calendar.isDate()) {
+            result = dateToJson(calendar.getDate());
+
+            contextId = 0;
+        }
+        else if (calendar.isDateRange()) {
+            result = new JsonObject();
+            DateRange dateRange = calendar.getDateRange();
+            result.add("startDate", dateToJson(dateRange.getStartDate()));
+            result.add("endDate", dateToJson(dateRange.getEndDate()));
+
+            contextId = 1;
+        }
+        else { // if is calendar.isWeekNDay()
+            WeekNDay weekNDay = calendar.getWeekNDay();
+            result = new JsonObject();
+            result.addProperty("dayOfWeek", weekNDay.getDayOfWeek().name());
+            result.addProperty("month", weekNDay.getMonth().name());
+            result.addProperty("weekOfMonth", weekNDay.getWeekOfMonth().longValue());
+
+            contextId = 2;
+        }
+        result.addProperty("contextId", contextId);
+
+        return result;
+    }
+
+    private static JsonObject dateToJson(Date date) {
+        JsonObject result;
+        result = new JsonObject();
+        result.addProperty("year", date.getYear());
+        result.addProperty("month", date.getMonth().name());
+        result.addProperty("day", date.getDay());
+        result.addProperty("dayOfWeek", date.getDayOfWeek().name());
+        return result;
+    }
+
+    private void checkIfSequenceOf(Encodable value) {
+        if (!(value instanceof SequenceOf)) {
+            // TODO eroor
+        }
     }
 
     private static String createMetaData(String value, String unit) {
-        return MessageFormat.format("'{'\"v\":\"{0}\",\"u\":\"{1}\"'}'", value, unit);
+        JsonObject meta = new JsonObject();
+
+        meta.addProperty("v", value);
+        meta.addProperty("u", unit);
+
+        return meta.toString();
     }
 
     @Override
