@@ -15,14 +15,17 @@ import org.openmuc.framework.data.ValueType;
 import com.serotonin.bacnet4j.obj.AnalogValueObject;
 import com.serotonin.bacnet4j.obj.BACnetObject;
 import com.serotonin.bacnet4j.obj.BinaryValueObject;
+import com.serotonin.bacnet4j.obj.MultistateValueObject;
 import com.serotonin.bacnet4j.obj.ObjectProperties;
 import com.serotonin.bacnet4j.obj.PropertyTypeDefinition;
 import com.serotonin.bacnet4j.type.Encodable;
+import com.serotonin.bacnet4j.type.constructed.BACnetArray;
 import com.serotonin.bacnet4j.type.enumerated.BinaryPV;
 import com.serotonin.bacnet4j.type.enumerated.EngineeringUnits;
 import com.serotonin.bacnet4j.type.enumerated.ObjectType;
 import com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier;
 import com.serotonin.bacnet4j.type.primitive.Boolean;
+import com.serotonin.bacnet4j.type.primitive.CharacterString;
 import com.serotonin.bacnet4j.type.primitive.Double;
 import com.serotonin.bacnet4j.type.primitive.Null;
 import com.serotonin.bacnet4j.type.primitive.Real;
@@ -147,7 +150,7 @@ public abstract class ConversionUtil {
         return (value) ? BinaryPV.active : BinaryPV.inactive;
     }
     
-    public static BACnetObject createBACnetObject(ObjectType objectType, int instanceNumber, String objectName, String presentValue, EngineeringUnits unit) {
+    public static BACnetObject createBACnetObject(ObjectType objectType, int instanceNumber, String objectName, String presentValue, EngineeringUnits unit, String typeSpecificPart) {
         Objects.requireNonNull(objectType, "objectType must not be null");
         final PropertyTypeDefinition propTypeDef = ObjectProperties.getPropertyTypeDefinition(objectType, PropertyIdentifier.presentValue);
         final ValueType openMUCType = BACNET_2_OPENMUCMUC_TYPEMAPPING.get(propTypeDef.getClazz());
@@ -181,8 +184,33 @@ public abstract class ConversionUtil {
             object.supportCovReporting();
             return object;
         }
+        case INTEGER: {
+            final int presentValueInt;
+            try {
+                presentValueInt = Integer.parseInt(presentValue);
+            }
+            catch (NumberFormatException nfe) {
+                throw new IllegalArgumentException(String.format("cannot convert presentValue {} to integer", presentValue));
+            }
+            if (typeSpecificPart == null) {
+                throw new IllegalArgumentException("no multistate-values specified");
+            }
+            final BACnetArray<CharacterString> multistateValues = createStateValues(typeSpecificPart);
+            final MultistateValueObject object = new MultistateValueObject(instanceNumber, objectName, multistateValues.getCount(), multistateValues, presentValueInt, false);
+            object.supportCovReporting();
+            return object;
+        }
         default:
             throw new IllegalArgumentException("cannot create BACnet object for type " + objectType);
         }
+    }
+    
+    private static BACnetArray<CharacterString> createStateValues(final String typeSpecificPart) {
+        final String[] stateTexts = typeSpecificPart.split(",");
+        final BACnetArray<CharacterString> result = new BACnetArray<CharacterString>(stateTexts.length);
+        for (int index = 1 ; index <= stateTexts.length; index++) {
+            result.set(index, new CharacterString(stateTexts[index-1]));
+        }
+        return result;
     }
 }

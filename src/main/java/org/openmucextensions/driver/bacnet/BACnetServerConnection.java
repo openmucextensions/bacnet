@@ -210,13 +210,14 @@ public class BACnetServerConnection extends BACnetConnection {
             return;
         }
         final String[] configUnitParts = config.getUnit().split(";");
-        if (configUnitParts.length != 2) {
-            logger.error("invalid configuration: unit of channel with id {} does not have 2 parts. Expected syntax: \"BACnetObjectType;EngineeringUnit\"", channelId);
+        if ((configUnitParts.length < 2) || (configUnitParts.length > 3)) {
+            logger.error("invalid configuration: unit of channel with id {} does not have 2 or 3 parts. Expected syntax: \"BACnetObjectType;EngineeringUnit[;typeSpecificInfo]\"", channelId);
             channelAddressesWithInvalidConfiguration.add(channelAddress);
             return;
         }
         final String configObjectType = configUnitParts[0];
         final String configEngUnit = configUnitParts[1];
+        final String typeSpecificPart = (configUnitParts.length < 3) ? null : configUnitParts[2];
         
         final ObjectType objectType;
         try {
@@ -252,7 +253,7 @@ public class BACnetServerConnection extends BACnetConnection {
         // configuration ok
         channelAddressesWithInvalidConfiguration.remove(channelAddress);
         
-        boolean createSuccess = createBacnetObject(objectType, objectName, engUnit, config);
+        boolean createSuccess = createBacnetObject(objectType, objectName, engUnit, typeSpecificPart, config);
         if (!createSuccess) {
             channelAddressesWithInvalidConfiguration.add(channelAddress);
         }
@@ -265,7 +266,7 @@ public class BACnetServerConnection extends BACnetConnection {
      * @param config 
      * @throws ConnectionException
      */
-    private boolean createBacnetObject(ObjectType type, String objectName, EngineeringUnits unit, ChannelConfig config) throws ConnectionException {
+    private boolean createBacnetObject(ObjectType type, String objectName, EngineeringUnits unit, String typeSpecificPart, ChannelConfig config) throws ConnectionException {
         final int instanceNumber = localDevice.getNextInstanceObjectNumber(type);
         logger.debug("creating new local BACnet object {} with type {} (and instance number {})", objectName, type, instanceNumber);
         
@@ -284,13 +285,16 @@ public class BACnetServerConnection extends BACnetConnection {
         case FLOAT:
             initialValue = "0.0";
             break;
+        case INTEGER:
+            initialValue = "1";
+            break;
         default:
             logger.error("cannot create BACnet object for type {}", type);
             return false;
         }
         
         try {
-            final BACnetObject object = ConversionUtil.createBACnetObject(type, instanceNumber, objectName, initialValue, unit);
+            final BACnetObject object = ConversionUtil.createBACnetObject(type, instanceNumber, objectName, initialValue, unit, typeSpecificPart);
             object.writeProperty(PropertyIdentifier.description, new CharacterString(config.getDescription()));
             localDevice.addObject(object);
             createdObjectIds.add(object.getId());

@@ -55,6 +55,11 @@ The driver is configurable via the `channels.xml` file. An example snippet for B
             <channel id="BoolWert1_OOS">
                 <channelAddress>L'Bool1#outOfService</channelAddress>
             </channel>
+            <channel id="MultistateWert1">
+                <channelAddress>L'Multistate1</channelAddress>
+                <unit>multiStateValue;noUnits;off,nt,ht</unit>
+                <description>Betriebsmodus (0=Off/1=NT/2=HT)</description>
+            </channel>
         </device>
      </driver>
 ``` 
