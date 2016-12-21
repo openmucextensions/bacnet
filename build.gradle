@@ -1,6 +1,7 @@
 buildscript {
   repositories {
-      mavenCentral()
+//      mavenCentral()
+      maven { url this.properties['internalArtifactory.mavenCentral'] }
   }
   dependencies {
       classpath 'net.researchgate:gradle-release:2.1.1'
@@ -21,6 +22,8 @@ targetCompatibility = 1.8
 
 // configure the release plugin
 release {
+  failOnCommitNeeded=false
+  failOnUpdateNeeded=false
   git {
     requireBranch = ''
   }
@@ -28,18 +31,24 @@ release {
 
 repositories {
   mavenLocal()
-  mavenCentral()
+      maven { url this.properties['internalArtifactory.releases'] }
+      maven { url this.properties['internalArtifactory.snapshots'] }
+      maven { url this.properties['internalArtifactory.thirdparty'] }
+      maven { url this.properties['internalArtifactory.mavenCentral'] }
   flatDir {
     name 'additionalLibraries'
     dirs rootDir.getAbsolutePath() + '/lib'
   }
+  
+//  maven { url this.properties['internalArtifactory.thirdparty'] }
+//  maven { url this.properties['internalArtifactory.mavenCentral'] }
 }
 
 configurations.create('embed')
 configurations.compile.extendsFrom configurations.embed
 
 dependencies {
-  def openmucversion = '0.15.2'
+  def openmucversion = '0.15.3-nongpl2'
 
   compile group: 'org.osgi', name: 'osgi_R4_compendium', version: '1.0'
   compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.21'
