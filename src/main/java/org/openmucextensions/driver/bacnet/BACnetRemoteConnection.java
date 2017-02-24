@@ -683,6 +683,8 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
         removeSubscriptions();
         LOCAL_DEVICE.getEventHandler().removeListener(this);
         LocalDeviceFactory.getInstance().dismissLocalDevice(LOCAL_DEVICE);
+        
+        stopTimeSynchronizationTimer();
     }
 
     /**
@@ -858,4 +860,9 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
             return false;
         }
     }
+
+	@Override
+	public void startTimeSynchronization() {
+		startTimeSynchronizationTimer(LOCAL_DEVICE);
+	}
 }

@@ -1,10 +1,13 @@
 package org.openmucextensions.driver.bacnet;
 
+import java.util.Timer;
+
 import org.apache.commons.lang3.StringUtils;
 import org.openmuc.framework.driver.spi.Connection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.serotonin.bacnet4j.LocalDevice;
 import com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier;
 import com.serotonin.bacnet4j.type.primitive.ObjectIdentifier;
 import com.serotonin.bacnet4j.util.PropertyReferences;
@@ -19,6 +22,8 @@ public abstract class BACnetConnection implements Connection {
 
     protected final static Logger logger = LoggerFactory.getLogger(BACnetDriver.class);
     protected String separator = "#";
+
+    private Timer timeSyncTimer = null;
 
     /**
      * Gets the object address out of a channel address string, which is the first part of the string split using the
@@ -129,5 +134,28 @@ public abstract class BACnetConnection implements Connection {
         }
 
     }
-
+    
+    void startTimeSynchronizationTimer(final LocalDevice localDevice) {
+    	
+    	if(timeSyncTimer!=null) timeSyncTimer.cancel();
+    	
+    	long delay = 5*1000; // first execution delay
+    	long interval = 24*60*60*1000; // execution interval
+    	
+    	timeSyncTimer = new Timer("BACnet Time Synchronization Timer", true);
+        timeSyncTimer.scheduleAtFixedRate(new TimeSyncTask(localDevice), delay, interval);
+        
+        logger.debug("BACnet time synchronization timer started");
+    }
+    
+    void stopTimeSynchronizationTimer() {
+    	
+    	if(timeSyncTimer!=null) timeSyncTimer.cancel();
+    	timeSyncTimer = null;
+    	
+    	logger.debug("BACnet time synchronization timer stopped");
+    }
+    
+    public abstract void startTimeSynchronization();
+    
 }

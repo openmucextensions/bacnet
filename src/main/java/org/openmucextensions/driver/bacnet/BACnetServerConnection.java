@@ -57,6 +57,7 @@ public class BACnetServerConnection extends BACnetConnection {
         
         if (SEND_IAM)
             localDevice.sendGlobalBroadcast(localDevice.getIAm());
+
     }
 
     @Override
@@ -340,7 +341,8 @@ public class BACnetServerConnection extends BACnetConnection {
 
     @Override
     public void disconnect() {
-        // remove all created objects
+        
+    	// remove all created objects
         for (final Iterator<ObjectIdentifier> it = createdObjectIds.iterator(); it.hasNext();) {
             final ObjectIdentifier nextObjectId = it.next();
             try {
@@ -352,6 +354,8 @@ public class BACnetServerConnection extends BACnetConnection {
             it.remove();
         }
         LocalDeviceFactory.getInstance().dismissLocalDevice(localDevice);
+        
+        stopTimeSynchronizationTimer();
     }
     
     public static ObjectType getObjectTypeOfBACnetObject(BACnetObject obj) throws ConnectionException {
@@ -362,4 +366,9 @@ public class BACnetServerConnection extends BACnetConnection {
             throw new ConnectionException("cannot read object type of internal BACnet object", e1);
         }
     }
+
+	@Override
+	public void startTimeSynchronization() {
+		startTimeSynchronizationTimer(localDevice);
+	}
 }

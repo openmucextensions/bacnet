@@ -72,6 +72,8 @@ public class BACnetDriver implements DriverService {
     private final static String SETTING_ISSERVER = "isServer";
     /** Setting-name for BACnet write priority */
     private final static String SETTING_WRITE_PRIORITY = "writePriority";
+    /** Setting-name for time synchronization request flag */
+    private final static String SETTING_TIME_SYNC = "timeSync";
 
     /** Setting-name for the local UDP port which has to be used (for local BACnet server) */
     @Deprecated
@@ -231,6 +233,8 @@ public class BACnetDriver implements DriverService {
         } catch (Exception e) {
             throw new ConnectionException("error while getting/creating local device: " + e.getMessage());
         }
+        
+        boolean timeSync = (settings.containsKey(SETTING_TIME_SYNC)) ? Boolean.parseBoolean(settings.get(SETTING_TIME_SYNC)) : Boolean.FALSE;
 
         if (isServer) {
 
@@ -249,6 +253,8 @@ public class BACnetDriver implements DriverService {
             }
 
             final BACnetServerConnection connection = new BACnetServerConnection(localDevice, deviceConfig.get());
+            
+            if(timeSync) connection.startTimeSynchronization();
             return connection;
         }
         else {
@@ -294,6 +300,7 @@ public class BACnetDriver implements DriverService {
                     ? parseWritePriority(settings.get(SETTING_WRITE_PRIORITY)) : null;
             connection.setWritePriority(writePriority);
 
+            if(timeSync) connection.startTimeSynchronization();
             return connection;
         }
     }

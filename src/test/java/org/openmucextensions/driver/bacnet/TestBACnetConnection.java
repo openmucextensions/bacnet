@@ -89,4 +89,10 @@ public class TestBACnetConnection extends BACnetConnection {
 		
 	}
 
+	@Override
+	public void startTimeSynchronization() {
+		// TODO Auto-generated method stub
+		
+	}
+
 }
