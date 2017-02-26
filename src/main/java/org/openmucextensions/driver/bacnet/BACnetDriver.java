@@ -1,5 +1,5 @@
 /*  OpenMUC BACnet driver service
- *  Copyright (C) 2016
+ *  Copyright (C) 2014-2017
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ import com.serotonin.bacnet4j.util.DiscoveryUtils;
 /**
  * BACnet/IP communication driver for OpenMUC based on bacnet4J.
  * 
- * @author Mike Pichler
+ * @author Daniel Lechner, Mike Pichler
  */
 public class BACnetDriver implements DriverService {
 
@@ -213,6 +213,9 @@ public class BACnetDriver implements DriverService {
 
         LocalDevice localDevice = null;
         boolean isServer;
+        
+        boolean timeSync = (settings.containsKey(SETTING_TIME_SYNC)) ? Boolean.parseBoolean(settings.get(SETTING_TIME_SYNC)) : Boolean.FALSE;
+        
         try {
             String broadcastIP = settings.get(SETTING_BROADCAST_IP);
             String localBindAddress = settings.get(SETTING_LOCALBIND_ADDRESS);
@@ -229,13 +232,11 @@ public class BACnetDriver implements DriverService {
                     : Boolean.FALSE;
 
             localDevice = LocalDeviceFactory.getInstance().obtainLocalDevice(broadcastIP, localBindAddress, devicePort,
-                    localDeviceInstanceNumber);
+                    localDeviceInstanceNumber, timeSync);
         } catch (Exception e) {
             throw new ConnectionException("error while getting/creating local device: " + e.getMessage());
         }
         
-        boolean timeSync = (settings.containsKey(SETTING_TIME_SYNC)) ? Boolean.parseBoolean(settings.get(SETTING_TIME_SYNC)) : Boolean.FALSE;
-
         if (isServer) {
 
             // get configuration for this driver from OpenMUC config service
@@ -253,8 +254,7 @@ public class BACnetDriver implements DriverService {
             }
 
             final BACnetServerConnection connection = new BACnetServerConnection(localDevice, deviceConfig.get());
-            
-            if(timeSync) connection.startTimeSynchronization();
+
             return connection;
         }
         else {
@@ -300,7 +300,6 @@ public class BACnetDriver implements DriverService {
                     ? parseWritePriority(settings.get(SETTING_WRITE_PRIORITY)) : null;
             connection.setWritePriority(writePriority);
 
-            if(timeSync) connection.startTimeSynchronization();
             return connection;
         }
     }

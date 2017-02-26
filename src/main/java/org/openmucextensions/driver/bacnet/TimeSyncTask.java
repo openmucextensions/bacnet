@@ -32,6 +32,6 @@ public class TimeSyncTask extends TimerTask {
 			localDevice.sendGlobalBroadcast(request);
 		}
 		
-		logger.info("sended BACnet time synchronization broadcast with local time");
+		logger.info("sent BACnet time synchronization broadcast with local system time");
 	}
 }

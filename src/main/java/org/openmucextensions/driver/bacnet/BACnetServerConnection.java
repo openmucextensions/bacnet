@@ -354,8 +354,6 @@ public class BACnetServerConnection extends BACnetConnection {
             it.remove();
         }
         LocalDeviceFactory.getInstance().dismissLocalDevice(localDevice);
-        
-        stopTimeSynchronizationTimer();
     }
     
     public static ObjectType getObjectTypeOfBACnetObject(BACnetObject obj) throws ConnectionException {
@@ -366,9 +364,4 @@ public class BACnetServerConnection extends BACnetConnection {
             throw new ConnectionException("cannot read object type of internal BACnet object", e1);
         }
     }
-
-	@Override
-	public void startTimeSynchronization() {
-		startTimeSynchronizationTimer(localDevice);
-	}
 }

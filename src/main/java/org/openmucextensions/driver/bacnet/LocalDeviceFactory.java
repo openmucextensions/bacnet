@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Timer;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
@@ -32,6 +33,8 @@ public class LocalDeviceFactory {
 	private final Map<Integer, LocalDevice> localDevices = new ConcurrentHashMap<Integer, LocalDevice>();
 	private final Map<Integer, Integer> localDeviceReferences = new HashMap<>();
 	private int nextDeviceInstanceNumber = 10000;
+	
+	private final Map<Integer, Timer> timeSyncTimers = new ConcurrentHashMap<>();
 	
 	/**
 	 * Gets a single <code>LocalDeviceFactory</code> instance.
@@ -90,6 +93,32 @@ public class LocalDeviceFactory {
         }
     }
 
+    /**
+     * Gets a {@link LocalDevice} instance for the given port. The device might be created or a cached instance may be returned.
+     * This localDevice must be dismissed if not used any more by calling {@link #dismissLocalDevice(Integer)}.
+     * 
+     * @param broadcastIP the broadcast IP of the local device or <code>null</code> (default: 255.255.255.255)
+     * @param localBindAddress the local bind IP or <code>null</code> (default: 0.0.0.0)
+     * @param localPort the local IP port or <code>null</code> (default: 0xBAC0)
+     * @param deviceInstanceNumber the local device instance number or <code>null</code> (default: auto-increment starting from 10000)
+     * * @param sendTimeSync if true, a time synchronization task will be started
+     * @return a {@link LocalDevice} instance for the given port
+     * @throws Exception if any error occurs while initializing the local device
+     */
+    LocalDevice obtainLocalDevice(String broadcastIP, String localBindAddress, Integer localPort, Integer deviceInstanceNumber, boolean sendTimeSync) throws Exception {
+    	
+    	LocalDevice localDevice = obtainLocalDevice(broadcastIP, localBindAddress, localPort, deviceInstanceNumber);
+    	
+    	if(sendTimeSync && !timeSyncTimers.containsKey(localPort)) {
+    		Timer timer = new Timer("BACnet time sync 0x" + Integer.toHexString(localPort), true);
+    		timer.scheduleAtFixedRate(new TimeSyncTask(localDevice), 0, 1000*60*60*24);
+    		timeSyncTimers.put(localPort, timer);
+    		LOGGER.debug("started BACnet time synchronization at local device port 0x{}", Integer.toHexString(localPort));
+    	}
+    	
+    	return localDevice;
+    }
+    
     private void increaseDeviceReference(int localPort) {
         synchronized(localDeviceReferences) {
             Integer numberOfReferences = localDeviceReferences.get(localPort);
@@ -145,10 +174,17 @@ public class LocalDeviceFactory {
         synchronized (localDevices) {
             final boolean referencesLeft = decreaseDeviceReference(port);
             if (!referencesLeft) {
-                // no more references to this device --> remove it from cache and terminate it
-                final LocalDevice localDevice = localDevices.remove(port);
-                LOGGER.debug("local device {} will be terminated", localDevice.getConfiguration().getInstanceId());
-                localDevice.terminate();
+            	// no more references to this device --> remove it from cache and terminate it
+            	
+            	if(timeSyncTimers.containsKey(port)) {
+            		// cancel time synchronization timer
+            		final Timer timer = timeSyncTimers.remove(port);
+                    timer.cancel();
+            	}
+            	
+            	final LocalDevice localDevice = localDevices.remove(port);
+            	LOGGER.debug("local device {} will be terminated", localDevice.getConfiguration().getInstanceId());
+            	localDevice.terminate();
             }
         }
     }
