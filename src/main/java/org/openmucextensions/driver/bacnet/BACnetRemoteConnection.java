@@ -233,12 +233,15 @@ public class BACnetRemoteConnection extends BACnetConnection implements DeviceEv
                     ValueType valueType = ConversionUtil.getValueTypeMapping(def.getClazz());
                     if (valueType == null)
                         valueType = ValueType.STRING; // default value type
-
+                    
+                    Integer valueTypeLength = null;
+                    if(valueType.equals(ValueType.STRING)||valueType.equals(ValueType.BYTE_ARRAY)) valueTypeLength = 1024;
+                    
                     boolean isCommandable = ObjectProperties.isCommandable(objectIdentifier.getObjectType(),
                             PropertyIdentifier.presentValue);
 
                     String metadata = createMetaData("", unit);
-                    ChannelScanInfo info = new ChannelScanInfo(channelAddress, description, valueType, null, true,
+                    ChannelScanInfo info = new ChannelScanInfo(channelAddress, description, valueType, valueTypeLength, true,
                             isCommandable, metadata);
 
                     channelScanInfos.add(info);
