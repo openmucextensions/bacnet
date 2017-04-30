@@ -179,6 +179,10 @@ public class BACnetDriver implements DriverService {
             Integer scanPort = parsePort(settings.get(SETTING_SCAN_PORT));
             scanAtPort(broadcastIP, scanPort, listener, discoverySleepTime);
         }
+        else if(System.getProperty("org.openmucextensions.driver.bacnet.port")!=null) {
+        	Integer scanPort = parsePort(System.getProperty("org.openmucextensions.driver.bacnet.port"));
+        	scanAtPort(broadcastIP, scanPort, listener, discoverySleepTime);
+        }
         else {
             int progress = 0;
             for (int scanPort = 0xBAC0; scanPort <= 0xBACF; scanPort++) {
