@@ -1,4 +1,4 @@
-/*  OpenMUC BACnet driver service
+/*  OpenMUC Extensions BACnet Driver
  *  Copyright (C) 2014-2017
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -55,32 +55,6 @@ import com.serotonin.bacnet4j.util.DiscoveryUtils;
 public class BACnetDriver implements DriverService {
 
     private final static Logger logger = LoggerFactory.getLogger(BACnetDriver.class);
-
-    /** Setting-name for the sleep time of the discovery process (in ms) */
-    private final static String SETTING_SCAN_DISCOVERYSLEEPTIME = "discoverySleepTime";
-    /** Setting-name for the single port used for scanning */
-    private final static String SETTING_SCAN_PORT = "scanPort";
-    /** Setting-name for the broadcast ip address */
-    private final static String SETTING_BROADCAST_IP = "broadcastIP";
-    /** Setting-name for the local ip address used for binding of the driver */
-    private final static String SETTING_LOCALBIND_ADDRESS = "localBindAddress";
-    /** Setting-name for device port */
-    private final static String SETTING_DEVICE_PORT = "devicePort";
-    /** Setting-name for the instance number of the local device (for local BACnet server) */
-    private final static String SETTING_LOCAL_DVC_INSTANCENUMBER = "localInstanceNumber";
-    /** Setting-name for the flag whether this device is a BACnet server */
-    private final static String SETTING_ISSERVER = "isServer";
-    /** Setting-name for BACnet write priority */
-    private final static String SETTING_WRITE_PRIORITY = "writePriority";
-    /** Setting-name for time synchronization request flag */
-    private final static String SETTING_TIME_SYNC = "timeSync";
-
-    /** Setting-name for the local UDP port which has to be used (for local BACnet server) */
-    @Deprecated
-    private final static String SETTING_LOCAL_PORT = "localDevicePort";
-    /** Setting-name for the UDP port of the remote device */
-    @Deprecated
-    private final static String SETTING_REMOTE_PORT = "remoteDevicePort";
 
     private final static long defaultDiscoverySleepTime = 2000;
     private ConfigService configService;
@@ -151,32 +125,13 @@ public class BACnetDriver implements DriverService {
         Settings settings = new Settings(settingsString);
 
         // get discoverySleepTime
-        long discoverySleepTime;
-        if (settings.containsKey(SETTING_SCAN_DISCOVERYSLEEPTIME)) {
-            final String discoverySleepTimeSetting = settings.get(SETTING_SCAN_DISCOVERYSLEEPTIME);
-            try {
-                discoverySleepTime = Long.parseLong(discoverySleepTimeSetting);
-            } catch (NumberFormatException nfe) {
-                logger.warn("invalid parameter discoverySleepTime " + SETTING_SCAN_DISCOVERYSLEEPTIME
-                        + ", using default value " + defaultDiscoverySleepTime);
-                discoverySleepTime = defaultDiscoverySleepTime;
-            }
-        }
-        else {
-            discoverySleepTime = defaultDiscoverySleepTime;
-        }
+        long discoverySleepTime = getDiscoverySleepTime(settings);
 
         // get broadcastIp
-        String broadcastIP = null;
-        if (settings.containsKey(SETTING_BROADCAST_IP)) {
-            broadcastIP = settings.get(SETTING_BROADCAST_IP);
-        }
-        else {
-            broadcastIP = IpNetwork.DEFAULT_BROADCAST_IP;
-        }
+        String broadcastIP = getBroadcastIP(settings);
 
-        if (settings.containsKey(SETTING_SCAN_PORT)) {
-            Integer scanPort = parsePort(settings.get(SETTING_SCAN_PORT));
+        if (settings.containsKey(Settings.SETTING_SCAN_PORT)) {
+            Integer scanPort = parsePort(settings.get(Settings.SETTING_SCAN_PORT));
             scanAtPort(broadcastIP, scanPort, listener, discoverySleepTime);
         }
         else if(System.getProperty("org.openmucextensions.driver.bacnet.port")!=null) {
@@ -218,21 +173,21 @@ public class BACnetDriver implements DriverService {
         LocalDevice localDevice = null;
         boolean isServer;
         
-        boolean timeSync = (settings.containsKey(SETTING_TIME_SYNC)) ? Boolean.parseBoolean(settings.get(SETTING_TIME_SYNC)) : Boolean.FALSE;
+        boolean timeSync = (settings.containsKey(Settings.SETTING_TIME_SYNC)) ? Boolean.parseBoolean(settings.get(Settings.SETTING_TIME_SYNC)) : Boolean.FALSE;
         
         try {
-            String broadcastIP = settings.get(SETTING_BROADCAST_IP);
-            String localBindAddress = settings.get(SETTING_LOCALBIND_ADDRESS);
+            String broadcastIP = settings.get(Settings.SETTING_BROADCAST_IP);
+            String localBindAddress = settings.get(Settings.SETTING_LOCALBIND_ADDRESS);
 
             Integer devicePort = null;
-            if (settings.containsKey(SETTING_DEVICE_PORT))
-                devicePort = parsePort(settings.get(SETTING_DEVICE_PORT));
-            else if (settings.containsKey(SETTING_LOCAL_PORT))
-                devicePort = parsePort(settings.get(SETTING_LOCAL_PORT));
+            if (settings.containsKey(Settings.SETTING_DEVICE_PORT))
+                devicePort = parsePort(settings.get(Settings.SETTING_DEVICE_PORT));
+            else if (settings.containsKey(Settings.SETTING_LOCAL_PORT))
+                devicePort = parsePort(settings.get(Settings.SETTING_LOCAL_PORT));
 
-            Integer localDeviceInstanceNumber = (settings.containsKey(SETTING_LOCAL_DVC_INSTANCENUMBER))
-                    ? parseDeviceAddress(settings.get(SETTING_LOCAL_DVC_INSTANCENUMBER)).remoteInstance() : null;
-            isServer = (settings.containsKey(SETTING_ISSERVER)) ? Boolean.parseBoolean(settings.get(SETTING_ISSERVER))
+            Integer localDeviceInstanceNumber = (settings.containsKey(Settings.SETTING_LOCAL_DVC_INSTANCENUMBER))
+                    ? parseDeviceAddress(settings.get(Settings.SETTING_LOCAL_DVC_INSTANCENUMBER)).remoteInstance() : null;
+            isServer = (settings.containsKey(Settings.SETTING_ISSERVER)) ? Boolean.parseBoolean(settings.get(Settings.SETTING_ISSERVER))
                     : Boolean.FALSE;
 
             localDevice = LocalDeviceFactory.getInstance().obtainLocalDevice(broadcastIP, localBindAddress, devicePort,
@@ -253,8 +208,7 @@ public class BACnetDriver implements DriverService {
                             && settingsString.equals(dc.getSettings()))
                     .findAny();
             if (!deviceConfig.isPresent()) {
-                // TODO why throw an internal error here? Better to throw a ConnectionException?
-                throw new InternalError(String.format("cannot find deviceConfig for address {}", deviceAddress));
+                throw new ConnectionException(String.format("cannot find deviceConfig for address {}", deviceAddress));
             }
 
             final BACnetServerConnection connection = new BACnetServerConnection(localDevice, deviceConfig.get());
@@ -273,9 +227,9 @@ public class BACnetDriver implements DriverService {
                     try {
                         // --> re-scan for devices
                         final Settings scanSettings = new Settings();
-                        scanSettings.put(SETTING_BROADCAST_IP, settings.get(SETTING_BROADCAST_IP));
-                        scanSettings.put(SETTING_LOCALBIND_ADDRESS, settings.get(SETTING_LOCALBIND_ADDRESS));
-                        scanSettings.put(SETTING_SCAN_PORT, settings.get(SETTING_DEVICE_PORT));
+                        scanSettings.put(Settings.SETTING_BROADCAST_IP, settings.get(Settings.SETTING_BROADCAST_IP));
+                        scanSettings.put(Settings.SETTING_LOCALBIND_ADDRESS, settings.get(Settings.SETTING_LOCALBIND_ADDRESS));
+                        scanSettings.put(Settings.SETTING_SCAN_PORT, settings.get(Settings.SETTING_DEVICE_PORT));
                         scanForDevices(scanSettings.toSettingsString(), null);
                     } catch (UnsupportedOperationException ignore) {
                         throw new AssertionError();
@@ -300,8 +254,8 @@ public class BACnetDriver implements DriverService {
 
             BACnetRemoteConnection connection = new BACnetRemoteConnection(localDevice, remoteDevice);
 
-            Integer writePriority = (settings.containsKey(SETTING_WRITE_PRIORITY))
-                    ? parseWritePriority(settings.get(SETTING_WRITE_PRIORITY)) : null;
+            Integer writePriority = (settings.containsKey(Settings.SETTING_WRITE_PRIORITY))
+                    ? parseWritePriority(settings.get(Settings.SETTING_WRITE_PRIORITY)) : null;
             connection.setWritePriority(writePriority);
 
             return connection;
@@ -312,10 +266,10 @@ public class BACnetDriver implements DriverService {
             throws ArgumentSyntaxException, ConnectionException {
 
         int port = 0;
-        if (settings.containsKey(SETTING_DEVICE_PORT))
-            port = parsePort(settings.get(SETTING_DEVICE_PORT));
+        if (settings.containsKey(Settings.SETTING_DEVICE_PORT))
+            port = parsePort(settings.get(Settings.SETTING_DEVICE_PORT));
         else
-            port = parsePort(settings.get(SETTING_REMOTE_PORT));
+            port = parsePort(settings.get(Settings.SETTING_REMOTE_PORT));
 
         Address address = IpNetworkUtils.toAddress(hostIp, port);
 
@@ -380,12 +334,12 @@ public class BACnetDriver implements DriverService {
             if (listener != null) {
                 final Settings scanSettings = new Settings();
                 if (broadcastIP != null)
-                    scanSettings.put(SETTING_BROADCAST_IP, broadcastIP);
+                    scanSettings.put(Settings.SETTING_BROADCAST_IP, broadcastIP);
                 String deviceAddress = Integer.toString(device.getInstanceNumber());
                 if (hostIp != null) {
                     deviceAddress += ';' + hostIp.getHostAddress();
                 }
-                scanSettings.put(SETTING_DEVICE_PORT, scanPort.toString());
+                scanSettings.put(Settings.SETTING_DEVICE_PORT, scanPort.toString());
                 listener.deviceFound(
                         new DeviceScanInfo(deviceAddress, scanSettings.toSettingsString(), device.getName()));
             }
@@ -441,6 +395,40 @@ public class BACnetDriver implements DriverService {
         }
 
         return new DeviceAddress(hostIp, remoteInstance);
+    }
+    
+    private long getDiscoverySleepTime(final Settings settings) {
+    	
+    	long discoverySleepTime = 0;
+    	
+    	if (settings.containsKey(Settings.SETTING_SCAN_DISCOVERYSLEEPTIME)) {
+            final String discoverySleepTimeSetting = settings.get(Settings.SETTING_SCAN_DISCOVERYSLEEPTIME);
+            try {
+                discoverySleepTime = Long.parseLong(discoverySleepTimeSetting);
+            } catch (NumberFormatException nfe) {
+                logger.warn("invalid parameter discoverySleepTime {}, using default value {}", Settings.SETTING_SCAN_DISCOVERYSLEEPTIME, defaultDiscoverySleepTime);
+                discoverySleepTime = defaultDiscoverySleepTime;
+            }
+        }
+        else {
+            discoverySleepTime = defaultDiscoverySleepTime;
+        }
+    	
+    	return discoverySleepTime;
+    }
+    
+    private String getBroadcastIP(final Settings settings) {
+    	
+    	String broadcastIP = null;
+        
+    	if (settings.containsKey(Settings.SETTING_BROADCAST_IP)) {
+            broadcastIP = settings.get(Settings.SETTING_BROADCAST_IP);
+        }
+        else {
+            broadcastIP = IpNetwork.DEFAULT_BROADCAST_IP;
+        }
+        
+        return broadcastIP;
     }
 
     private class DeviceAddress {

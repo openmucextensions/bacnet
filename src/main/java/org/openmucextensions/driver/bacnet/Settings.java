@@ -1,5 +1,5 @@
-/*  OpenMUC BACnet driver service
- *  Copyright (C) 2015 Mike Pichler
+/*  OpenMUC Extensions BACnet Driver
+ *  Copyright (C) 2014-2017
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,6 +23,32 @@ public class Settings extends HashMap<String, String> {
 	private static final long serialVersionUID = -1827619677454357491L;
 
 	public static final String VALID_SETTINGS_STRING_REGEX = "^(?:\\s*((?:[^=;\\s]+\\s+)*[^=;\\s]+)\\s*=\\s*((?:[^=;\\s]+\\s+)*[^=;\\s]+)\\s*(?:;(?!\\s*$)|$))+$";
+	
+    /** Setting-name for the sleep time of the discovery process (in ms) */
+    public final static String SETTING_SCAN_DISCOVERYSLEEPTIME = "discoverySleepTime";
+    /** Setting-name for the single port used for scanning */
+    public final static String SETTING_SCAN_PORT = "scanPort";
+    /** Setting-name for the broadcast ip address */
+    public final static String SETTING_BROADCAST_IP = "broadcastIP";
+    /** Setting-name for the local ip address used for binding of the driver */
+    public final static String SETTING_LOCALBIND_ADDRESS = "localBindAddress";
+    /** Setting-name for device port */
+    public final static String SETTING_DEVICE_PORT = "devicePort";
+    /** Setting-name for the instance number of the local device (for local BACnet server) */
+    public final static String SETTING_LOCAL_DVC_INSTANCENUMBER = "localInstanceNumber";
+    /** Setting-name for the flag whether this device is a BACnet server */
+    public final static String SETTING_ISSERVER = "isServer";
+    /** Setting-name for BACnet write priority */
+    public final static String SETTING_WRITE_PRIORITY = "writePriority";
+    /** Setting-name for time synchronization request flag */
+    public final static String SETTING_TIME_SYNC = "timeSync";
+
+    /** Setting-name for the local UDP port which has to be used (for local BACnet server) */
+    @Deprecated
+    public final static String SETTING_LOCAL_PORT = "localDevicePort";
+    /** Setting-name for the UDP port of the remote device */
+    @Deprecated
+    public final static String SETTING_REMOTE_PORT = "remoteDevicePort";
 	
 	public Settings() {
 		super();
